@@ -131,7 +131,7 @@ COMMENT ON TABLE resume_summary IS 'Professional summary section of resume';
 CREATE TABLE resume_skills (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     resume_id UUID NOT NULL REFERENCES resumes(id) ON DELETE CASCADE,
-    category VARCHAR(50) NOT NULL CHECK (category IN ('languages', 'frameworks', 'tools', 'concepts', 'other')),
+    category VARCHAR(50) NOT NULL CHECK (category IN ('LANGUAGES', 'FRAMEWORKS', 'TOOLS', 'CONCEPTS', 'OTHERS')),
     skill VARCHAR(100) NOT NULL
 );
 
@@ -153,7 +153,7 @@ CREATE TABLE resume_experience (
     role VARCHAR(150) NOT NULL,
     company VARCHAR(150) NOT NULL,
     location VARCHAR(150),
-    employment_type VARCHAR(50) CHECK (employment_type IN ('Full-time', 'Part-time', 'Contract', 'Intern', 'Freelance')),
+    employment_type VARCHAR(50) CHECK (employment_type IN ('FULL-TIME', 'PART-TIME', 'CONTRACT', 'INTERN', 'FREELANCE')),
     start_date DATE NOT NULL,
     end_date DATE,
     technologies TEXT[],
@@ -175,7 +175,7 @@ COMMENT ON COLUMN resume_experience.technologies IS 'Array of technologies used 
 CREATE TABLE resume_experience_bullets (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     experience_id UUID NOT NULL REFERENCES resume_experience(id) ON DELETE CASCADE,
-    bullet_type VARCHAR(50) NOT NULL CHECK (bullet_type IN ('responsibility', 'achievement')),
+    bullet_type VARCHAR(50) NOT NULL CHECK (bullet_type IN ('RESPONSIBILITY' , 'ACHIEVEMENT')),
     content TEXT NOT NULL
 );
 
@@ -337,7 +337,7 @@ CREATE TABLE resume_agent_logs (
     tokens_input INT,
     tokens_output INT,
     execution_time_ms INT,
-    status VARCHAR(20) CHECK (status IN ('success', 'failure', 'partial')),
+    status VARCHAR(20) CHECK (status IN ('SUCCESS', 'FAILURE', 'PARTIAL')),
     error_message TEXT,
     created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
