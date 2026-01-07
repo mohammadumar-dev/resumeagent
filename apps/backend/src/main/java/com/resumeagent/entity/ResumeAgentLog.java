@@ -11,7 +11,6 @@ import java.util.UUID;
 
 /**
  * Audit trail for AI agent operations with performance metrics.
- *
  * Maps to table: resume_agent_logs
  */
 @Entity
@@ -59,8 +58,8 @@ public class ResumeAgentLog implements Serializable {
     /**
      * Optional reference to a resume; nullable, DB-level FK ON DELETE SET NULL.
      */
-    @ManyToOne(fetch = FetchType.LAZY, optional = true)
-    @JoinColumn(name = "resume_id", nullable = true,
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "resume_id",
             foreignKey = @ForeignKey(name = "fk_agent_logs_resume"))
     private Resume resume;
 
