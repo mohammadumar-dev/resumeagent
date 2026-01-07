@@ -337,7 +337,7 @@ CREATE TABLE resume_agent_logs (
     tokens_input INT,
     tokens_output INT,
     execution_time_ms INT,
-    status VARCHAR(20) CHECK (status IN ('success', 'failure', 'partial')),
+    status VARCHAR(20) CHECK (status IN ('SUCCESS', 'FAILURE', 'PARTIAL')), -- Changed the -> 'success', 'failure', 'partial' <- to UPPERCASE.
     error_message TEXT,
     created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
