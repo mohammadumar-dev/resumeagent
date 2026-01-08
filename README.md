@@ -856,6 +856,24 @@ users (1) ──── (M) resumes (1) ──── (M) resume_versions
 
 ---
 
+#### 21. `refresh_tokens`
+
+| Column                 | Type         | Description                                           |
+| ---------------------- | ------------ | ----------------------------------------------------- |
+| `id`                   | UUID (PK)    | Refresh token ID                                      |
+| `user_id`              | UUID (FK)    | Associated user                                       |
+| `token_hash`           | VARCHAR(255) | Hashed refresh token (bcrypt/argon2, never plaintext) |
+| `expires_at`           | TIMESTAMP    | Token expiration time                                 |
+| `revoked`              | BOOLEAN      | Whether the token has been revoked                    |
+| `revoked_at`           | TIMESTAMP    | When the token was revoked                            |
+| `replaced_by_token_id` | UUID (FK)    | Token that replaced this one during rotation          |
+| `ip_address`           | VARCHAR(45)  | IP address where token was issued                     |
+| `user_agent`           | TEXT         | Browser / device user agent                           |
+| `created_at`           | TIMESTAMP    | Token creation timestamp                              |
+| `last_used_at`         | TIMESTAMP    | Last time the token was used                          |
+
+---
+
 ### Why This Schema Works
 
 ✅ **Normalized**: Eliminates data redundancy  
