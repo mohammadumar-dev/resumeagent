@@ -409,6 +409,38 @@ CREATE INDEX idx_password_history_created_at ON password_history(created_at DESC
 COMMENT ON TABLE password_history IS 'Password history to prevent password reuse for enhanced security';
 
 -- ============================================================================
+-- REFRESH TOKENS (Session Continuity & Token Rotation)
+-- ============================================================================
+
+CREATE TABLE refresh_tokens (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    -- Store ONLY hashed refresh token (never plaintext)
+    token_hash VARCHAR(255) NOT NULL UNIQUE,
+    -- Token lifecycle
+    expires_at TIMESTAMP NOT NULL,
+    revoked BOOLEAN NOT NULL DEFAULT FALSE,
+    revoked_at TIMESTAMP,
+    -- Rotation & security
+    replaced_by_token_id UUID REFERENCES refresh_tokens(id),
+    -- Session context (very important for security)
+    ip_address VARCHAR(45),
+    user_agent TEXT,
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    last_used_at TIMESTAMP
+);
+
+-- Indexes for refresh_tokens
+CREATE INDEX idx_refresh_tokens_user_id ON refresh_tokens(user_id);
+CREATE INDEX idx_refresh_tokens_expires_at ON refresh_tokens(expires_at);
+CREATE INDEX idx_refresh_tokens_revoked ON refresh_tokens(revoked);
+CREATE INDEX idx_refresh_tokens_created_at ON refresh_tokens(created_at DESC);
+
+COMMENT ON TABLE refresh_tokens IS 'Hashed refresh tokens for session continuity, rotation, and revocation';
+COMMENT ON COLUMN refresh_tokens.token_hash IS 'Hashed refresh token (bcrypt/argon2). Never store plaintext tokens.';
+COMMENT ON COLUMN refresh_tokens.replaced_by_token_id IS 'Used for refresh token rotation and reuse detection';
+
+-- ============================================================================
 -- TRIGGERS FOR AUTOMATIC TIMESTAMP UPDATES
 -- ============================================================================
 
