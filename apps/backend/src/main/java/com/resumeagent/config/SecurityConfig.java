@@ -90,7 +90,16 @@ public class SecurityConfig {
                                 org.springframework.security.web.csrf.CookieCsrfTokenRepository.withHttpOnlyFalse())
                         // Ignore CSRF for login (otherwise login form breaks)
                         // NOTE: Login is idempotent and doesn't change server state until success
-                        .ignoringRequestMatchers("/auth/login", "/auth/register"))
+                        .ignoringRequestMatchers(
+                                "/auth/login",
+                                "/auth/register",
+                                "/auth/verify-email",
+                                "/auth/resend-verification",
+                                "/auth/forgot-password",
+                                "/auth/reset-password",
+                                "/api/admin/register"
+                        )
+                )
 
                 // CORS Configuration
                 .cors(cors -> cors.configurationSource(corsConfigurationSource()))
@@ -111,6 +120,7 @@ public class SecurityConfig {
                                 "/auth/verify-email",
                                 "/auth/resend-verification",
                                 "/auth/forgot-password",
+                                "/api/admin/register",
                                 "/auth/reset-password")
                         .permitAll()
 
