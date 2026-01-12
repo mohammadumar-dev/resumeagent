@@ -6,18 +6,13 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 
 /**
- * Login response DTO
- * Returned from POST /auth/login endpoint
- * SECURITY NOTE:
- * Tokens are NOT included in response body
- * Tokens are sent via HttpOnly Secure cookies
- * This prevents JavaScript access (XSS mitigation)
+ * Common response DTO
  */
 @Data
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
-public class LoginResponse {
+public class CommonResponse {
 
     /**
      * Success message
@@ -25,7 +20,7 @@ public class LoginResponse {
     private String message;
 
     /**
-     * User email (for confirmation)
+     * User / Admin email (for confirmation)
      */
     private String email;
 }
