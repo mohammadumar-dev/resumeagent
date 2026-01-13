@@ -72,6 +72,7 @@ public class EmailService {
         // Helper simplifies setting recipients, subject, and body
         MimeMessageHelper helper = new MimeMessageHelper(message, true, StandardCharsets.UTF_8.name());
 
+        helper.setFrom("ResumeAgent <yunus.bagewadi32@gmail.com>");
         helper.setTo(recipientEmail);
         helper.setSubject(subject);
 
