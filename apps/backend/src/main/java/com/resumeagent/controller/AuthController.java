@@ -1,17 +1,19 @@
 package com.resumeagent.controller;
 
 import com.resumeagent.dto.request.LoginRequest;
+import com.resumeagent.dto.request.RegisterAdminAndUserRequest; // [ADDED]
 import com.resumeagent.dto.response.CommonResponse;
 import com.resumeagent.dto.response.LoginResponse;
 import com.resumeagent.dto.response.UserInfoResponse;
 import com.resumeagent.service.AuthenticationService;
+import com.resumeagent.service.UserService; // [ADDED]
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.http.HttpStatus;
+import org.springframework.http.HttpStatus; // [ADDED]
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
@@ -36,6 +38,9 @@ public class AuthController {
 
     private final AuthenticationService authenticationService;
 
+    // [ADDED] Service responsible for USER registration
+    private final UserService userService;
+
     /**
      * Login endpoint
      * PUBLIC ENDPOINT (no authentication required)
@@ -51,7 +56,7 @@ public class AuthController {
      * - Credentials transmitted in HTTPS POST body
      * - Tokens returned as HttpOnly cookies (not in response body)
      * - Failed attempts logged for rate limiting (future)
-     * 
+     *
      * @param request      Login credentials
      * @param httpRequest  HTTP request for context
      * @param httpResponse HTTP response for setting cookies
@@ -78,7 +83,7 @@ public class AuthController {
      * - Refresh token deleted from database
      * - Prevents obtaining new access tokens
      * - Works even if user not authenticated (idempotent)
-     * 
+     *
      * @param request  HTTP request
      * @param response HTTP response
      * @return Success message
@@ -103,7 +108,7 @@ public class AuthController {
      * - Only returns current user's info (no user ID parameter)
      * - Prevents unauthorized access to other users' data
      * - Account status enforced by Spring Security
-     * 
+     *
      * @param authentication Spring Security Authentication object (injected)
      * @return User information
      */
@@ -111,6 +116,37 @@ public class AuthController {
     public ResponseEntity<UserInfoResponse> getCurrentUser(Authentication authentication) {
         UserInfoResponse userInfo = authenticationService.getCurrentUser(authentication);
         return ResponseEntity.ok(userInfo);
+    }
+
+    /**
+     * Register a new standard USER account.
+     * PUBLIC ENDPOINT (no authentication required)
+     *
+     * Flow:
+     * - Validates request payload
+     * - Creates USER account with emailActive = false
+     * - Generates email verification token
+     * - Sends verification email
+     *
+     * HTTP STATUS CODES:
+     * - 201 CREATED: Registration successful
+     * - 400 BAD REQUEST: Validation errors
+     * - 409 CONFLICT: Email already exists
+     *
+     * SECURITY NOTES:
+     * - Password is stored as BCrypt hash
+     * - Email verification is required before login
+     * - Generic errors prevent account enumeration
+     *
+     * @param request registration payload
+     * @return registration success response
+     */
+    @PostMapping(value = "/register")
+    public ResponseEntity<CommonResponse> registerUser(
+            @Valid @RequestBody RegisterAdminAndUserRequest request) {
+
+        CommonResponse response = userService.registerUser(request);
+        return ResponseEntity.status(HttpStatus.CREATED).body(response);
     }
 
     /**
