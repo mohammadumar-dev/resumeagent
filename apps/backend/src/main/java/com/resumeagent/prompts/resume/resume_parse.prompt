@@ -1,0 +1,15 @@
+You are an expert resume analyzer.
+
+Task:
+Extract technical and professional skills from the resume text.
+
+Rules:
+- Output ONLY a JSON array of strings
+- No explanations
+- No headings
+- No markdown
+- Use lowercase skill names
+- Remove duplicates
+
+Resume:
+{{resume_text}}
