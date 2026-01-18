@@ -40,15 +40,57 @@ COMMENT ON COLUMN users.resume_generation_limit IS 'Maximum number of resume gen
 COMMENT ON COLUMN users.resume_generation_used IS 'Number of resume generations used by user';
 
 -- ============================================================================
--- RESUME TABLES
+-- MASTER RESUMES (Canonical User-Owned Source Resume)
+-- ============================================================================
+-- One master resume per user (today).
+-- Future: allow multiple master resumes by dropping UNIQUE constraint.
+-- ============================================================================
+
+CREATE TABLE master_resumes (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    -- Ownership
+    user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    -- Canonical resume content used as AI input
+    -- This is the SINGLE source of truth for generations
+    resume_json JSONB NOT NULL,
+    -- Lifecycle & state
+    is_active BOOLEAN NOT NULL DEFAULT TRUE,
+    -- Audit & version safety
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    -- Enforce ONE master resume per user (Phase 1)
+    CONSTRAINT uq_master_resume_per_user UNIQUE (user_id)
+);
+
+-- Fast lookup of master resume by user
+CREATE INDEX idx_master_resumes_user_id
+    ON master_resumes(user_id);
+
+-- GIN index for structured querying (skills, sections, metadata)
+-- Useful for analytics, admin tools, future search
+CREATE INDEX idx_master_resumes_resume_json
+    ON master_resumes USING GIN (resume_json);
+
+COMMENT ON TABLE master_resumes IS
+'Canonical user-owned resume used as the base input for AI-generated resumes';
+
+COMMENT ON COLUMN master_resumes.resume_json IS
+'Full structured resume JSON provided by the user; source of truth for AI agents';
+
+COMMENT ON COLUMN master_resumes.is_active IS
+'Soft-state flag allowing future archival or replacement without deletion';
+
+-- ============================================================================
+-- RESUME TABLES (Generated)
 -- ============================================================================
 
 CREATE TABLE resumes (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    master_resume_id UUID NOT NULL REFERENCES master_resumes(id) ON DELETE RESTRICT,
     job_title_targeted VARCHAR(150),
     company_targeted VARCHAR(150),
-    current_version INT NOT NULL DEFAULT 1,
+    status VARCHAR(30) NOT NULL DEFAULT 'ACTIVE' CHECK (status IN ('ACTIVE', 'ARCHIVED', 'DELETED')),
     created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
@@ -68,262 +110,21 @@ CREATE TABLE resume_versions (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     resume_id UUID NOT NULL REFERENCES resumes(id) ON DELETE CASCADE,
     version_number INT NOT NULL,
+    source VARCHAR(20) NOT NULL CHECK (source IN ('AI', 'USER_EDIT', 'IMPORT')),
     resume_json JSONB NOT NULL,
-    source VARCHAR(50) NOT NULL CHECK (source IN ('AI', 'USER', 'IMPORT')),
     created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    
     CONSTRAINT uq_resume_version UNIQUE (resume_id, version_number)
 );
+
 
 -- Indexes for resume_versions table
 CREATE INDEX idx_resume_versions_resume_id ON resume_versions(resume_id);
 CREATE INDEX idx_resume_versions_version ON resume_versions(resume_id, version_number DESC);
 CREATE INDEX idx_resume_versions_json ON resume_versions USING GIN (resume_json);
+CREATE INDEX idx_resume_versions_resume_id_version ON resume_versions (resume_id, version_number);
 
 COMMENT ON TABLE resume_versions IS 'Full version history with complete resume JSON snapshots for rollback capability';
 COMMENT ON COLUMN resume_versions.resume_json IS 'Complete canonical resume data in JSON format';
-
--- ============================================================================
--- RESUME HEADER
--- ============================================================================
-
-CREATE TABLE resume_header (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    resume_id UUID NOT NULL REFERENCES resumes(id) ON DELETE CASCADE,
-    full_name VARCHAR(150) NOT NULL,
-    location VARCHAR(150),
-    phone VARCHAR(50),
-    email VARCHAR(150) NOT NULL,
-    headline VARCHAR(200),
-    linkedin TEXT,
-    github TEXT,
-    portfolio TEXT,
-    
-    CONSTRAINT uq_resume_header UNIQUE (resume_id)
-);
-
--- Index for resume_header table
-CREATE INDEX idx_resume_header_resume_id ON resume_header(resume_id);
-
-COMMENT ON TABLE resume_header IS 'Contact information and professional links for resume';
-
--- ============================================================================
--- RESUME SUMMARY
--- ============================================================================
-
-CREATE TABLE resume_summary (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    resume_id UUID NOT NULL REFERENCES resumes(id) ON DELETE CASCADE,
-    summary_text TEXT NOT NULL,
-    
-    CONSTRAINT uq_resume_summary UNIQUE (resume_id)
-);
-
--- Index for resume_summary table
-CREATE INDEX idx_resume_summary_resume_id ON resume_summary(resume_id);
-
-COMMENT ON TABLE resume_summary IS 'Professional summary section of resume';
-
--- ============================================================================
--- RESUME SKILLS (Categorized for smart keyword injection)
--- ============================================================================
-
-CREATE TABLE resume_skills (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    resume_id UUID NOT NULL REFERENCES resumes(id) ON DELETE CASCADE,
-    category VARCHAR(50) NOT NULL CHECK (category IN ('LANGUAGES', 'FRAMEWORKS', 'TOOLS', 'CONCEPTS', 'OTHERS')),
-    skill VARCHAR(100) NOT NULL
-);
-
--- Indexes for resume_skills table
-CREATE INDEX idx_resume_skills_resume_id ON resume_skills(resume_id);
-CREATE INDEX idx_resume_skills_category ON resume_skills(category);
-CREATE INDEX idx_resume_skills_skill ON resume_skills(skill);
-
-COMMENT ON TABLE resume_skills IS 'Categorized skills for targeted keyword optimization';
-COMMENT ON COLUMN resume_skills.category IS 'Skill category: languages, frameworks, tools, concepts, other';
-
--- ============================================================================
--- RESUME EXPERIENCE
--- ============================================================================
-
-CREATE TABLE resume_experience (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    resume_id UUID NOT NULL REFERENCES resumes(id) ON DELETE CASCADE,
-    role VARCHAR(150) NOT NULL,
-    company VARCHAR(150) NOT NULL,
-    location VARCHAR(150),
-    employment_type VARCHAR(50) CHECK (employment_type IN ('FULL-TIME', 'PART-TIME', 'CONTRACT', 'INTERN', 'FREELANCE')),
-    start_date DATE NOT NULL,
-    end_date DATE,
-    technologies TEXT[],
-    
-    CONSTRAINT chk_experience_dates CHECK (end_date IS NULL OR end_date >= start_date)
-);
-
--- Indexes for resume_experience table
-CREATE INDEX idx_resume_experience_resume_id ON resume_experience(resume_id);
-CREATE INDEX idx_resume_experience_dates ON resume_experience(start_date DESC, end_date DESC NULLS FIRST);
-
-COMMENT ON TABLE resume_experience IS 'Work experience entries with role and company information';
-COMMENT ON COLUMN resume_experience.technologies IS 'Array of technologies used in this role';
-
--- ============================================================================
--- RESUME EXPERIENCE BULLETS
--- ============================================================================
-
-CREATE TABLE resume_experience_bullets (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    experience_id UUID NOT NULL REFERENCES resume_experience(id) ON DELETE CASCADE,
-    bullet_type VARCHAR(50) NOT NULL CHECK (bullet_type IN ('RESPONSIBILITY' , 'ACHIEVEMENT')),
-    content TEXT NOT NULL
-);
-
--- Indexes for resume_experience_bullets table
-CREATE INDEX idx_experience_bullets_experience_id ON resume_experience_bullets(experience_id);
-CREATE INDEX idx_experience_bullets_type ON resume_experience_bullets(bullet_type);
-
-COMMENT ON TABLE resume_experience_bullets IS 'Individual bullet points for experience entries, separated for flexible reordering and AI rewriting';
-COMMENT ON COLUMN resume_experience_bullets.bullet_type IS 'Type of bullet: responsibility or achievement';
-
--- ============================================================================
--- RESUME PROJECTS
--- ============================================================================
-
-CREATE TABLE resume_projects (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    resume_id UUID NOT NULL REFERENCES resumes(id) ON DELETE CASCADE,
-    name VARCHAR(200) NOT NULL,
-    type VARCHAR(100),
-    description TEXT,
-    technologies TEXT[]
-);
-
--- Indexes for resume_projects table
-CREATE INDEX idx_resume_projects_resume_id ON resume_projects(resume_id);
-
-COMMENT ON TABLE resume_projects IS 'Project entries with description and tech stack';
-
--- ============================================================================
--- RESUME PROJECT HIGHLIGHTS
--- ============================================================================
-
-CREATE TABLE resume_project_highlights (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    project_id UUID NOT NULL REFERENCES resume_projects(id) ON DELETE CASCADE,
-    content TEXT NOT NULL
-);
-
--- Index for resume_project_highlights table
-CREATE INDEX idx_project_highlights_project_id ON resume_project_highlights(project_id);
-
-COMMENT ON TABLE resume_project_highlights IS 'Highlight bullets for individual projects';
-
--- ============================================================================
--- RESUME EDUCATION
--- ============================================================================
-
-CREATE TABLE resume_education (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    resume_id UUID NOT NULL REFERENCES resumes(id) ON DELETE CASCADE,
-    degree VARCHAR(150) NOT NULL,
-    field VARCHAR(150),
-    institution VARCHAR(200) NOT NULL,
-    location VARCHAR(150),
-    start_year INT,
-    end_year INT,
-    
-    CONSTRAINT chk_education_years CHECK (start_year IS NULL OR end_year IS NULL OR end_year >= start_year)
-);
-
--- Indexes for resume_education table
-CREATE INDEX idx_resume_education_resume_id ON resume_education(resume_id);
-CREATE INDEX idx_resume_education_years ON resume_education(end_year DESC NULLS FIRST);
-
-COMMENT ON TABLE resume_education IS 'Educational background including degrees and institutions';
-
--- ============================================================================
--- RESUME CERTIFICATIONS
--- ============================================================================
-
-CREATE TABLE resume_certifications (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    resume_id UUID NOT NULL REFERENCES resumes(id) ON DELETE CASCADE,
-    name VARCHAR(200) NOT NULL,
-    issuer VARCHAR(200) NOT NULL,
-    year INT
-);
-
--- Index for resume_certifications table
-CREATE INDEX idx_resume_certifications_resume_id ON resume_certifications(resume_id);
-CREATE INDEX idx_resume_certifications_year ON resume_certifications(year DESC);
-
-COMMENT ON TABLE resume_certifications IS 'Professional certifications with issuing organization';
-
--- ============================================================================
--- RESUME ACHIEVEMENTS
--- ============================================================================
-
-CREATE TABLE resume_achievements (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    resume_id UUID NOT NULL REFERENCES resumes(id) ON DELETE CASCADE,
-    content TEXT NOT NULL
-);
-
--- Index for resume_achievements table
-CREATE INDEX idx_resume_achievements_resume_id ON resume_achievements(resume_id);
-
-COMMENT ON TABLE resume_achievements IS 'Notable achievements and awards';
-
--- ============================================================================
--- RESUME PUBLICATIONS
--- ============================================================================
-
-CREATE TABLE resume_publications (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    resume_id UUID NOT NULL REFERENCES resumes(id) ON DELETE CASCADE,
-    title VARCHAR(200) NOT NULL,
-    platform VARCHAR(100),
-    url TEXT
-);
-
--- Index for resume_publications table
-CREATE INDEX idx_resume_publications_resume_id ON resume_publications(resume_id);
-
-COMMENT ON TABLE resume_publications IS 'Published articles, blog posts, and papers';
-
--- ============================================================================
--- RESUME ADDITIONAL SECTIONS (Extension point for custom sections)
--- ============================================================================
-
-CREATE TABLE resume_additional_sections (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    resume_id UUID NOT NULL REFERENCES resumes(id) ON DELETE CASCADE,
-    section_name VARCHAR(100) NOT NULL,
-    content TEXT NOT NULL
-);
-
--- Indexes for resume_additional_sections table
-CREATE INDEX idx_resume_additional_sections_resume_id ON resume_additional_sections(resume_id);
-CREATE INDEX idx_resume_additional_sections_name ON resume_additional_sections(section_name);
-
-COMMENT ON TABLE resume_additional_sections IS 'Flexible extension point for custom resume sections like volunteer work, languages spoken, etc.';
-
--- ============================================================================
--- RESUME METADATA
--- ============================================================================
-
-CREATE TABLE resume_metadata (
-    resume_id UUID PRIMARY KEY REFERENCES resumes(id) ON DELETE CASCADE,
-    generated_at TIMESTAMP,
-    language VARCHAR(20) DEFAULT 'en',
-    ats_optimized BOOLEAN DEFAULT TRUE,
-    ai_models_used TEXT[],
-    pipeline_version VARCHAR(20)
-);
-
-COMMENT ON TABLE resume_metadata IS 'Technical metadata about resume generation and processing';
-COMMENT ON COLUMN resume_metadata.ai_models_used IS 'Array of AI models used in generation pipeline';
 
 -- ============================================================================
 -- RESUME AGENT LOGS (Debugging and auditing)
@@ -526,75 +327,87 @@ CREATE TRIGGER update_resumes_updated_at
     FOR EACH ROW
     EXECUTE FUNCTION update_updated_at_column();
 
+CREATE TRIGGER update_master_resumes_updated_at
+    BEFORE UPDATE ON master_resumes
+    FOR EACH ROW
+    EXECUTE FUNCTION update_updated_at_column();
 -- ============================================================================
 -- VIEWS FOR COMMON QUERIES
 -- ============================================================================
 
 -- Complete resume view with all sections
 CREATE VIEW v_complete_resumes AS
-SELECT 
-    r.id AS resume_id,
+SELECT
+    r.id                     AS resume_id,
     r.user_id,
+    r.master_resume_id,
     r.job_title_targeted,
     r.company_targeted,
-    r.current_version,
+    r.status,
     r.created_at,
     r.updated_at,
-    u.full_name AS user_name,
-    u.email AS user_email,
-    h.full_name AS resume_name,
-    h.email AS resume_email,
-    h.phone,
-    h.location,
-    h.headline,
-    s.summary_text,
-    rm.language,
-    rm.ats_optimized
+
+    -- User info
+    u.full_name              AS user_name,
+    u.email                  AS user_email,
+    u.plan                   AS user_plan,
+
+    -- Version info
+    rv.version_number        AS latest_version,
+    rv.source                AS latest_version_source,
+    rv.created_at            AS version_created_at,
+
+    -- Canonical resume JSON (what DOCX + FTL consumes)
+    rv.resume_json
+
 FROM resumes r
-JOIN users u ON r.user_id = u.id
-LEFT JOIN resume_header h ON r.id = h.resume_id
-LEFT JOIN resume_summary s ON r.id = s.resume_id
-LEFT JOIN resume_metadata rm ON r.id = rm.resume_id;
+         JOIN users u
+              ON r.user_id = u.id
+
+         JOIN LATERAL (
+    SELECT rv_inner.*
+    FROM resume_versions rv_inner
+    WHERE rv_inner.resume_id = r.id
+    ORDER BY rv_inner.version_number DESC
+        LIMIT 1
+) rv ON TRUE;
 
 COMMENT ON VIEW v_complete_resumes IS 'Consolidated view of resumes with header, summary, and metadata';
 
 -- User resume statistics view
 CREATE VIEW v_user_resume_stats AS
-SELECT 
+SELECT
     u.id AS user_id,
     u.full_name,
     u.email,
     u.plan,
+
+    -- Quota tracking
     u.resume_generation_limit,
     u.resume_generation_used,
     (u.resume_generation_limit - u.resume_generation_used) AS remaining_generations,
-    COUNT(DISTINCT r.id) AS total_resumes,
-    COUNT(DISTINCT rv.id) AS total_versions,
-    MAX(r.updated_at) AS last_resume_update
+
+    -- Resume metrics
+    COUNT(DISTINCT r.id)        AS total_generated_resumes,
+    COUNT(rv.id)               AS total_resume_versions,
+    MAX(r.updated_at)          AS last_resume_update
+
 FROM users u
-LEFT JOIN resumes r ON u.id = r.user_id
-LEFT JOIN resume_versions rv ON r.id = rv.resume_id
-GROUP BY u.id, u.full_name, u.email, u.plan, u.resume_generation_limit, u.resume_generation_used;
+         LEFT JOIN resumes r
+                   ON u.id = r.user_id
+
+         LEFT JOIN resume_versions rv
+                   ON r.id = rv.resume_id
+
+GROUP BY
+    u.id,
+    u.full_name,
+    u.email,
+    u.plan,
+    u.resume_generation_limit,
+    u.resume_generation_used;
 
 COMMENT ON VIEW v_user_resume_stats IS 'User statistics including resume counts and generation limits';
-
--- -- ============================================================================
--- -- SEED DATA (Optional - for development/testing)
--- -- ============================================================================
---
--- -- Insert default admin user (password should be changed immediately in production)
--- -- Password: 'Admin123!' (hashed with bcrypt)
--- INSERT INTO users (id, full_name, email, password_hash, user_role, plan, resume_generation_limit, is_email_active)
--- VALUES (
---     uuid_generate_v4(),
---     'System Administrator',
---     'admin@resumeagent.com',
---     '$2a$10$abcdefghijklmnopqrstuvwxyz123456789',  -- Replace with actual bcrypt hash
---     'ADMIN',
---     'PRO',
---     999,
---     TRUE
--- ) ON CONFLICT (email) DO NOTHING;
 
 -- ============================================================================
 -- PERFORMANCE OPTIMIZATION NOTES
