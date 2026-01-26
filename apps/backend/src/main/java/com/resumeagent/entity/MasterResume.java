@@ -1,5 +1,7 @@
 package com.resumeagent.entity;
 
+import com.resumeagent.dto.request.CreateMasterResume;
+import com.resumeagent.entity.model.MasterResumeJson;
 import jakarta.persistence.*;
 import lombok.*;
 import org.hibernate.annotations.JdbcTypeCode;
@@ -78,7 +80,7 @@ public class MasterResume implements Serializable {
      */
     @JdbcTypeCode(SqlTypes.JSON)
     @Column(name = "resume_json", nullable = false, columnDefinition = "jsonb")
-    private Map<String, Object> resumeJson;
+    private MasterResumeJson resumeJson;
 
     // -------------------------------------------------------------------------
     // Lifecycle & State
