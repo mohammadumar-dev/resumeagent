@@ -2,19 +2,19 @@ package com.resumeagent.service;
 
 import com.resumeagent.dto.request.CreateAndUpdateMasterResume;
 import com.resumeagent.dto.response.CommonResponse;
+import com.resumeagent.dto.response.MasterResumeResponse;
 import com.resumeagent.entity.MasterResume;
 import com.resumeagent.entity.User;
 import com.resumeagent.entity.model.MasterResumeJson;
 import com.resumeagent.exception.DuplicateResourceException;
 import com.resumeagent.repository.MasterResumeRepository;
 import com.resumeagent.repository.UserRepository;
-import jakarta.transaction.Transactional;
+import org.springframework.transaction.annotation.Transactional;
 import lombok.RequiredArgsConstructor;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
-import java.time.Instant;
 import java.util.UUID;
 
 @Service
@@ -28,7 +28,6 @@ public class MasterResumeService {
     /**
      * Creates a Master Resume for the authenticated user.
      * Only 1 master resume per user is allowed (Phase 1).
-     *
      * Transactional because we insert a new master resume row,
      * and we want full rollback if anything fails.
      */
@@ -92,7 +91,12 @@ public class MasterResumeService {
         masterResume.setResumeJson(resumeJson);
         // updatedAt handled by @PreUpdate
 
-        masterResumeRepository.save(masterResume);
+        try {
+            masterResumeRepository.save(masterResume);
+        } catch (DataIntegrityViolationException ex) {
+            // This handles race conditions if two requests come together
+            throw new DuplicateResourceException("Master resume does not exist. Create one before updating.");
+        }
 
         return CommonResponse.builder()
                 .message("Master resume updated successfully")
@@ -100,13 +104,45 @@ public class MasterResumeService {
                 .build();
     }
 
+    @Transactional(readOnly = true)
+    public MasterResumeResponse getMasterResume(String email) {
+
+        User user = userRepository.findByEmail(email)
+                .orElseThrow(() ->
+                        new IllegalStateException("Authenticated user not found"));
+
+        MasterResume masterResume = masterResumeRepository.findByUser(user)
+                .orElseThrow(() ->
+                        new IllegalStateException("Master resume not found"));
+
+        return MasterResumeResponse.builder()
+                .resumeJson(masterResume.getResumeJson())
+                .build();
+    }
+
+    @Transactional
+    public CommonResponse deleteMasterResume(String email) {
+
+        User user = userRepository.findByEmail(email)
+                .orElseThrow(() -> new IllegalStateException("Authenticated user not found"));
+
+        MasterResume masterResume = masterResumeRepository.findByUser(user)
+                .orElseThrow(() -> new IllegalStateException("Master resume not found"));
+
+        masterResumeRepository.delete(masterResume);
+
+        return CommonResponse.builder()
+                .email(email)
+                .message("Master resume deleted successfully")
+                .build();
+    }
+
+
     /**
      * Simple manual conversion method.
      * This keeps the service clean and avoids tight coupling of DB model and API DTO.
      */
     private MasterResumeJson convertToModel(CreateAndUpdateMasterResume request) {
-
-        MasterResumeJson json = new MasterResumeJson();
 
         // Minimal safe mapping (you can expand field-by-field later)
         // If your DTO == model exactly, you can also use ObjectMapper convertValue()

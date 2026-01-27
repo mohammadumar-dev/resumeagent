@@ -2,10 +2,12 @@ package com.resumeagent.controller;
 
 import com.resumeagent.dto.request.CreateAndUpdateMasterResume;
 import com.resumeagent.dto.response.CommonResponse;
+import com.resumeagent.dto.response.MasterResumeResponse;
 import com.resumeagent.service.MasterResumeService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 
@@ -31,12 +33,26 @@ public class MasterResumeController {
     }
 
     @PutMapping(value = "/update")
-    @ResponseStatus(HttpStatus.ACCEPTED)
+    @ResponseStatus(HttpStatus.OK)
     public CommonResponse updateMasterResume(
             Authentication authentication,
             @Valid @RequestBody CreateAndUpdateMasterResume request
     ) {
         String email = authentication.getName();
         return masterResumeService.updateMasterResume(request, email);
+    }
+
+    @GetMapping(value = "/view")
+    @ResponseStatus(HttpStatus.OK)
+    public MasterResumeResponse getMasterResume(Authentication authentication ) {
+        String email = authentication.getName();
+        return masterResumeService.getMasterResume(email);
+    }
+
+    @DeleteMapping(value = "/delete")
+    @ResponseStatus(HttpStatus.OK)
+    public CommonResponse deleteMasterResume(Authentication authentication) {
+        String email = authentication.getName();
+        return masterResumeService.deleteMasterResume(email);
     }
 }
