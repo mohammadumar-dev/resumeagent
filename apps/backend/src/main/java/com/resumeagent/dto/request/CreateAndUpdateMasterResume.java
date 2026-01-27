@@ -6,7 +6,7 @@ import java.time.Instant;
 import java.util.List;
 
 @Data
-public class CreateMasterResume {
+public class CreateAndUpdateMasterResume {
 
     private Metadata metadata;
     private Header header;

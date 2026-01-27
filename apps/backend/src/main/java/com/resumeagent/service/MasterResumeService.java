@@ -1,6 +1,6 @@
 package com.resumeagent.service;
 
-import com.resumeagent.dto.request.CreateMasterResume;
+import com.resumeagent.dto.request.CreateAndUpdateMasterResume;
 import com.resumeagent.dto.response.CommonResponse;
 import com.resumeagent.entity.MasterResume;
 import com.resumeagent.entity.User;
@@ -14,6 +14,7 @@ import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
+import java.time.Instant;
 import java.util.UUID;
 
 @Service
@@ -32,7 +33,7 @@ public class MasterResumeService {
      * and we want full rollback if anything fails.
      */
     @Transactional
-    public CommonResponse createMasterResume(CreateMasterResume request, String email) {
+    public CommonResponse createMasterResume(CreateAndUpdateMasterResume request, String email) {
 
         User user = userRepository.findByEmail(email)
                 .orElseThrow(() -> new IllegalStateException("Authenticated user not found"));
@@ -67,10 +68,43 @@ public class MasterResumeService {
     }
 
     /**
+     * Updates a Master Resume for the authenticated user.
+     * Only if master resume exist then update happens.
+     * Transactional because we insert a new master resume row,
+     * and we want full rollback if anything fails.
+     */
+    @Transactional
+    public CommonResponse updateMasterResume(CreateAndUpdateMasterResume request, String email) {
+
+        User user = userRepository.findByEmail(email)
+                .orElseThrow(() ->
+                        new IllegalStateException("Authenticated user not found"));
+
+        MasterResume masterResume = masterResumeRepository.findByUser(user)
+                .orElseThrow(() ->
+                        new IllegalStateException(
+                                "Master resume does not exist. Create one before updating."));
+
+        // Convert DTO → JSON model
+        MasterResumeJson resumeJson = convertToModel(request);
+
+        // Update canonical JSON
+        masterResume.setResumeJson(resumeJson);
+        // updatedAt handled by @PreUpdate
+
+        masterResumeRepository.save(masterResume);
+
+        return CommonResponse.builder()
+                .message("Master resume updated successfully")
+                .email(email)
+                .build();
+    }
+
+    /**
      * Simple manual conversion method.
      * This keeps the service clean and avoids tight coupling of DB model and API DTO.
      */
-    private MasterResumeJson convertToModel(CreateMasterResume request) {
+    private MasterResumeJson convertToModel(CreateAndUpdateMasterResume request) {
 
         MasterResumeJson json = new MasterResumeJson();
 

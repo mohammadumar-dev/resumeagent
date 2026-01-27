@@ -1,6 +1,5 @@
 package com.resumeagent.entity;
 
-import com.resumeagent.dto.request.CreateMasterResume;
 import com.resumeagent.entity.model.MasterResumeJson;
 import jakarta.persistence.*;
 import lombok.*;
@@ -10,7 +9,6 @@ import org.hibernate.type.SqlTypes;
 import java.io.Serial;
 import java.io.Serializable;
 import java.time.Instant;
-import java.util.Map;
 import java.util.UUID;
 
 @Entity
