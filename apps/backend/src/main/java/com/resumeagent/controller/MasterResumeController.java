@@ -7,9 +7,13 @@ import com.resumeagent.service.MasterResumeService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
-import org.springframework.http.ResponseEntity;
+import org.springframework.http.MediaType;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
+
+import java.io.IOException;
+import java.nio.charset.StandardCharsets;
 
 @RestController
 @RequestMapping("/api/master-resume")
@@ -32,6 +36,23 @@ public class MasterResumeController {
         return masterResumeService.createMasterResume(request, email);
     }
 
+    @PostMapping(
+            value = "/create/text",
+            consumes = MediaType.MULTIPART_FORM_DATA_VALUE
+    )
+    @ResponseStatus(HttpStatus.CREATED)
+    public CommonResponse createMasterResumeFromText(
+            Authentication authentication,
+            @RequestPart("resume") String resumeText
+    ) {
+
+        String email = authentication.getName();
+        return masterResumeService.createMasterResumeFromText(resumeText, email);
+    }
+
+    /**
+     * Updates a Master Resume for the authenticated user.
+     */
     @PutMapping(value = "/update")
     @ResponseStatus(HttpStatus.OK)
     public CommonResponse updateMasterResume(
@@ -42,6 +63,9 @@ public class MasterResumeController {
         return masterResumeService.updateMasterResume(request, email);
     }
 
+    /**
+     * Returns a Master Resume for the authenticated user.
+     */
     @GetMapping(value = "/view")
     @ResponseStatus(HttpStatus.OK)
     public MasterResumeResponse getMasterResume(Authentication authentication ) {
@@ -49,6 +73,9 @@ public class MasterResumeController {
         return masterResumeService.getMasterResume(email);
     }
 
+    /**
+     * Deletes a Master Resume for the authenticated user.
+     */
     @DeleteMapping(value = "/delete")
     @ResponseStatus(HttpStatus.OK)
     public CommonResponse deleteMasterResume(Authentication authentication) {

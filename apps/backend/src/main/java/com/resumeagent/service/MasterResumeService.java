@@ -1,5 +1,6 @@
 package com.resumeagent.service;
 
+import com.resumeagent.ai.agents.ResumeParserAgent;
 import com.resumeagent.dto.request.CreateAndUpdateMasterResume;
 import com.resumeagent.dto.response.CommonResponse;
 import com.resumeagent.dto.response.MasterResumeResponse;
@@ -24,6 +25,7 @@ public class MasterResumeService {
     private final UserRepository userRepository;
     private final MasterResumeRepository masterResumeRepository;
     private final ObjectMapper objectMapper;
+    private final ResumeParserAgent resumeParserAgent;
 
     /**
      * Creates a Master Resume for the authenticated user.
@@ -62,6 +64,20 @@ public class MasterResumeService {
 
         return CommonResponse.builder()
                 .message("Master resume created successfully")
+                .email(email)
+                .build();
+    }
+
+    @Transactional
+    public CommonResponse createMasterResumeFromText(String resumeText, String email) {
+
+        User user = userRepository.findByEmail(email)
+                .orElseThrow(() -> new IllegalStateException("Authenticated user not found"));
+
+        MasterResumeJson parsedResume = resumeParserAgent.run(resumeText);
+
+        return CommonResponse.builder()
+                .message("Master resume created from text successfully \n \n" + parsedResume)
                 .email(email)
                 .build();
     }

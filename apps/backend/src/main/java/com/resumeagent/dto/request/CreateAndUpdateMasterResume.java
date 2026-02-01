@@ -2,7 +2,7 @@ package com.resumeagent.dto.request;
 
 import lombok.Data;
 
-import java.time.Instant;
+import java.time.LocalDate;
 import java.util.List;
 
 @Data
@@ -64,8 +64,8 @@ public class CreateAndUpdateMasterResume {
         private String organization;
         private String location;
         private String employmentType;
-        private Instant startDate;
-        private Instant endDate;
+        private LocalDate startDate;
+        private LocalDate endDate;
         private String context;
         private List<String> responsibilities;
         private List<String> achievements;
@@ -76,11 +76,12 @@ public class CreateAndUpdateMasterResume {
     public static class ProjectOrWork {
         private String title;
         private String type;
-        private String description;
+        private List<String> description; // ✅ CHANGED
         private List<String> outcomes;
         private List<String> skillsUsed;
         private String link;
     }
+
 
     @Data
     public static class Education {
@@ -100,7 +101,7 @@ public class CreateAndUpdateMasterResume {
         private String issuer;
         private Integer year;
         private String credentialId;
-        private Instant validUntil;
+        private LocalDate validUntil;
     }
 
     @Data
@@ -124,8 +125,8 @@ public class CreateAndUpdateMasterResume {
         private String role;
         private String organization;
         private String location;
-        private Instant startDate;
-        private Instant endDate;
+        private LocalDate startDate;
+        private LocalDate endDate;
         private String description;
     }
 

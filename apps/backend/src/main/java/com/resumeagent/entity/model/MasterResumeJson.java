@@ -2,7 +2,7 @@ package com.resumeagent.entity.model;
 
 import lombok.Data;
 
-import java.time.Instant;
+import java.time.LocalDate;
 import java.util.List;
 
 @Data
@@ -12,6 +12,7 @@ public class MasterResumeJson {
     private Header header;
     private String summary;
     private CoreSkills coreSkills;
+
     private List<Experience> experience;
     private List<ProjectOrWork> projectsOrWork;
     private List<Education> education;
@@ -20,8 +21,11 @@ public class MasterResumeJson {
     private List<Publication> publications;
     private List<VolunteerExperience> volunteerExperience;
     private List<Language> languages;
+
     private List<String> professionalAffiliations;
     private List<AdditionalSection> additionalSections;
+
+    /* ===================== Nested Models ===================== */
 
     @Data
     public static class Metadata {
@@ -56,29 +60,37 @@ public class MasterResumeJson {
         private List<String> domainSpecific;
     }
 
+    /* ===================== Experience ===================== */
+
     @Data
     public static class Experience {
         private String role;
         private String organization;
         private String location;
         private String employmentType;
-        private Instant startDate;
-        private Instant endDate;
-        private String context;
+
+        private LocalDate startDate;
+        private LocalDate endDate;
+
         private List<String> responsibilities;
         private List<String> achievements;
         private List<String> skillsUsed;
     }
 
+    /* ===================== Projects ===================== */
+
     @Data
     public static class ProjectOrWork {
         private String title;
-        private String type;
-        private String description;
+        private String type; // project | freelance | open-source
+        private String link;
+
+        private List<String> description;
         private List<String> outcomes;
         private List<String> skillsUsed;
-        private String link;
     }
+
+    /* ===================== Education ===================== */
 
     @Data
     public static class Education {
@@ -86,11 +98,15 @@ public class MasterResumeJson {
         private String fieldOfStudy;
         private String institution;
         private String location;
-        private Integer startYear;
-        private Integer endYear;
-        private String gradeOrScore;
-        private String notes;
+
+        private LocalDate startDate;
+        private LocalDate endDate;
+
+        private String gradeOrScore; // CGPA / Percentage
+        private List<String> focusAreas;
     }
+
+    /* ===================== Certifications ===================== */
 
     @Data
     public static class Certification {
@@ -98,34 +114,44 @@ public class MasterResumeJson {
         private String issuer;
         private Integer year;
         private String credentialId;
-        private Instant validUntil;
+        private LocalDate validUntil;
     }
+
+    /* ===================== Awards ===================== */
 
     @Data
     public static class AwardAndHonor {
         private String title;
         private String issuer;
         private Integer year;
-        private String description;
+        private List<String> description;
     }
+
+    /* ===================== Publications ===================== */
 
     @Data
     public static class Publication {
         private String title;
-        private String platform;
+        private String publisher;
         private Integer year;
         private String url;
     }
+
+    /* ===================== Volunteering ===================== */
 
     @Data
     public static class VolunteerExperience {
         private String role;
         private String organization;
         private String location;
-        private Instant startDate;
-        private Instant endDate;
-        private String description;
+
+        private LocalDate startDate;
+        private LocalDate endDate;
+
+        private List<String> description;
     }
+
+    /* ===================== Languages ===================== */
 
     @Data
     public static class Language {
@@ -133,9 +159,11 @@ public class MasterResumeJson {
         private String proficiency;
     }
 
+    /* ===================== Custom Sections ===================== */
+
     @Data
     public static class AdditionalSection {
         private String title;
-        private String content;
+        private List<String> content;
     }
 }
