@@ -1,8 +1,12 @@
 package com.resumeagent.entity;
 
 import com.resumeagent.entity.enums.ResumeStatus;
+import com.resumeagent.entity.model.JobDescriptionAnalyzerJson;
+import com.resumeagent.entity.model.MasterResumeJson;
 import jakarta.persistence.*;
 import lombok.*;
+import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.type.SqlTypes;
 
 import java.io.Serial;
 import java.io.Serializable;
@@ -84,10 +88,30 @@ public class Resume implements Serializable {
     private String jobTitleTargeted;
 
     /**
+     * Analyzed job description JSON from JobDescriptionAnalyzerAgent.
+     */
+    @JdbcTypeCode(SqlTypes.JSON)
+    @Column(name = "analyzed_job_description", nullable = false, columnDefinition = "jsonb")
+    private JobDescriptionAnalyzerJson jobDescriptionAnalyzerJson;
+
+    /**
      * Optional targeted company name (e.g., "Google", "Amazon").
      */
     @Column(name = "company_targeted", length = 150)
     private String companyTargeted;
+
+
+    // -------------------------------------------------------------------------
+    // Generated Resume JSON
+    // -------------------------------------------------------------------------
+
+    /**
+     * The final resume JSON generated for this targeted resume.
+     * Stored as JSONB in PostgreSQL.
+     */
+    @JdbcTypeCode(SqlTypes.JSON)
+    @Column(name = "resume_json", nullable = false, columnDefinition = "jsonb")
+    private MasterResumeJson resumeJson;
 
     // -------------------------------------------------------------------------
     // Status

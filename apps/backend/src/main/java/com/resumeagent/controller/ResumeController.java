@@ -1,5 +1,6 @@
 package com.resumeagent.controller;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
 import com.resumeagent.dto.response.CommonResponse;
 import com.resumeagent.service.ResumeService;
 import lombok.RequiredArgsConstructor;
@@ -21,7 +22,7 @@ public class ResumeController {
     public CommonResponse generateResume(
             Authentication authentication,
             @RequestPart("jobDescription" ) String jobDescription
-    ) {
+    ) throws JsonProcessingException {
 
         String email = authentication.getName();
         return resumeService.generateResume(jobDescription, email);

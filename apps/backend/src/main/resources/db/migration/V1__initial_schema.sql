@@ -85,8 +85,10 @@ CREATE TABLE resumes (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
     master_resume_id UUID NOT NULL REFERENCES master_resumes(id) ON DELETE RESTRICT,
-    job_title_targeted VARCHAR(150),
+    job_title_targeted VARCHAR(150) NOT NULL,
+    analyzed_job_description JSONB NOT NULL,
     company_targeted VARCHAR(150),
+    resume_json JSONB NOT NULL,
     status VARCHAR(30) NOT NULL DEFAULT 'ACTIVE' CHECK (status IN ('ACTIVE', 'ARCHIVED', 'DELETED')),
     created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
@@ -98,30 +100,6 @@ CREATE INDEX idx_resumes_created_at ON resumes(created_at);
 CREATE INDEX idx_resumes_job_title ON resumes(job_title_targeted);
 
 COMMENT ON TABLE resumes IS 'Main resume records with targeting information and version tracking';
-
--- ============================================================================
--- RESUME VERSIONS TABLE (Critical for rollback and version control)
--- ============================================================================
-
-CREATE TABLE resume_versions (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    resume_id UUID NOT NULL REFERENCES resumes(id) ON DELETE CASCADE,
-    version_number INT NOT NULL,
-    source VARCHAR(20) NOT NULL CHECK (source IN ('AI', 'USER_EDIT', 'IMPORT')),
-    resume_json JSONB NOT NULL,
-    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    CONSTRAINT uq_resume_version UNIQUE (resume_id, version_number)
-);
-
-
--- Indexes for resume_versions table
-CREATE INDEX idx_resume_versions_resume_id ON resume_versions(resume_id);
-CREATE INDEX idx_resume_versions_version ON resume_versions(resume_id, version_number DESC);
-CREATE INDEX idx_resume_versions_json ON resume_versions USING GIN (resume_json);
-CREATE INDEX idx_resume_versions_resume_id_version ON resume_versions (resume_id, version_number);
-
-COMMENT ON TABLE resume_versions IS 'Full version history with complete resume JSON snapshots for rollback capability';
-COMMENT ON COLUMN resume_versions.resume_json IS 'Complete canonical resume data in JSON format';
 
 -- ============================================================================
 -- RESUME AGENT LOGS (Debugging and auditing)
@@ -328,6 +306,7 @@ CREATE TRIGGER update_master_resumes_updated_at
     BEFORE UPDATE ON master_resumes
     FOR EACH ROW
     EXECUTE FUNCTION update_updated_at_column();
+
 -- ============================================================================
 -- VIEWS FOR COMMON QUERIES
 -- ============================================================================
@@ -349,27 +328,17 @@ SELECT
     u.email                  AS user_email,
     u.plan                   AS user_plan,
 
-    -- Version info
-    rv.version_number        AS latest_version,
-    rv.source                AS latest_version_source,
-    rv.created_at            AS version_created_at,
-
-    -- Canonical resume JSON (what DOCX + FTL consumes)
-    rv.resume_json
+    -- Canonical resume (Phase 1 = master_resumes)
+    mr.created_at            AS version_created_at,
+    mr.resume_json
 
 FROM resumes r
          JOIN users u
               ON r.user_id = u.id
+         JOIN master_resumes mr
+              ON r.master_resume_id = mr.id;
 
-         JOIN LATERAL (
-    SELECT rv_inner.*
-    FROM resume_versions rv_inner
-    WHERE rv_inner.resume_id = r.id
-    ORDER BY rv_inner.version_number DESC
-        LIMIT 1
-) rv ON TRUE;
-
-COMMENT ON VIEW v_complete_resumes IS 'Consolidated view of resumes with header, summary, and metadata';
+COMMENT ON VIEW v_complete_resumes IS 'Consolidated view of resumes with header, summary, and canonical resume JSON';
 
 -- User resume statistics view
 CREATE VIEW v_user_resume_stats AS
@@ -386,15 +355,11 @@ SELECT
 
     -- Resume metrics
     COUNT(DISTINCT r.id)        AS total_generated_resumes,
-    COUNT(rv.id)               AS total_resume_versions,
     MAX(r.updated_at)          AS last_resume_update
 
 FROM users u
          LEFT JOIN resumes r
                    ON u.id = r.user_id
-
-         LEFT JOIN resume_versions rv
-                   ON r.id = rv.resume_id
 
 GROUP BY
     u.id,
@@ -412,7 +377,6 @@ COMMENT ON VIEW v_user_resume_stats IS 'User statistics including resume counts 
 
 -- Consider adding these for high-traffic scenarios:
 -- 1. Partitioning resume_agent_logs by created_at (monthly or quarterly)
--- 2. Archiving old resume_versions to separate cold storage
 -- 3. Adding materialized views for analytics dashboards
 -- 4. Implementing connection pooling at application layer
 -- 5. Using read replicas for reporting queries
