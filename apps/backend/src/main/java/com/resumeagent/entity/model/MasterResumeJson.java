@@ -73,6 +73,7 @@ public class MasterResumeJson {
         private LocalDate endDate;
 
         private List<String> responsibilities;
+        private String context;
         private List<String> achievements;
         private List<String> skillsUsed;
     }

@@ -1,0 +1,116 @@
+{
+  "match_summary": {
+    "overall_match_score": number,
+    "confidence_level": "string",
+    "summary_reason": "string"
+  },
+
+  "skill_alignment": {
+    "strong_matches": [
+      {
+        "resume_skill": "string",
+        "job_requirement": "string",
+        "match_type": "string",
+        "evidence_source": "string",
+        "relevance_score": number
+      }
+    ],
+
+    "partial_matches": [
+      {
+        "resume_skill": "string",
+        "job_requirement": "string",
+        "relationship": "string",
+        "evidence_source": "string",
+        "relevance_score": number
+      }
+    ],
+
+    "missing_but_related": [
+      {
+        "job_requirement": "string",
+        "related_resume_skills": ["string"],
+        "reasoning": "string",
+        "gap_severity": "string"
+      }
+    ]
+  },
+
+  "experience_alignment": {
+    "role_relevance_score": number,
+    "matched_responsibilities": [
+      {
+        "job_responsibility": "string",
+        "resume_evidence": "string",
+        "match_strength": "string"
+      }
+    ],
+    "partial_responsibilities": [
+      {
+        "job_responsibility": "string",
+        "resume_evidence": "string",
+        "match_strength": "string"
+      }
+    ]
+  },
+
+  "project_relevance": {
+    "overall_project_score": number,
+    "relevant_projects": [
+      {
+        "project_title": "string",
+        "relevance_reason": "string",
+        "applicable_job_expectations": [
+          "string",
+          "string"
+        ],
+        "relevance_score": number
+      }
+    ]
+  },
+
+  "gap_analysis": {
+    "critical_gaps": [],
+    "non_critical_gaps": [
+      {
+        "missing_skill": "string",
+        "impact": "string",
+        "severity": "string"
+      }
+    ]
+  },
+
+  "priority_emphasis": {
+    "skills_to_emphasize": [
+      "string",
+      "string",
+      "string",
+      "string"
+    ],
+    "experience_sections_to_highlight": [
+      "string"
+    ],
+    "projects_to_highlight": [
+      "string"
+    ]
+  },
+
+  "contextual_enhancement_suggestions": {
+    "terminology_alignment": [
+      {
+        "resume_term": "string",
+        "job_preferred_term": "string"
+      }
+    ],
+    "skill_variants_to_include": [
+      "string",
+      "string"
+    ]
+  },
+
+  "constraints_and_validation": {
+    "resume_data_only": boolean,
+    "no_fabricated_skills": boolean,
+    "semantic_matches_explainable": boolean
+  }
+}

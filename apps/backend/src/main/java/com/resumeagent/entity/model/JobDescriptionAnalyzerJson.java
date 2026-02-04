@@ -2,7 +2,7 @@ package com.resumeagent.entity.model;
 
 import lombok.Data;
 
-import java.util.Date;
+import java.time.LocalDate;
 import java.util.List;
 
 @Data
@@ -21,10 +21,10 @@ public class JobDescriptionAnalyzerJson {
     /* ===================== Nested Models ===================== */
     @Data
     public static class JobMetadata {
-        private String JobId;
+        private String jobId;
         private String sourcePlatform;
         private String sourceUrl;
-        private Date postingDate;
+        private LocalDate postingDate;
         private String language;
     }
 
