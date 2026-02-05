@@ -130,7 +130,9 @@ LANGUAGES / AFFILIATIONS / ADDITIONAL SECTIONS
 SCHEMA (MasterResumeJson)
 ====================
 {
-  "metadata": { "version": "string" },
+  "metadata": {
+    "version": "string"
+  },
 
   "header": {
     "fullName": "string",
@@ -164,9 +166,9 @@ SCHEMA (MasterResumeJson)
       "location": "string",
       "employmentType": "string",
       "startDate": "YYYY-MM-DD",
-      "endDate": "YYYY-MM-DD | null",
-      "context": "string | null",
+      "endDate": null,
       "responsibilities": ["string"],
+      "context": "string",
       "achievements": ["string"],
       "skillsUsed": ["string"]
     }
@@ -190,7 +192,7 @@ SCHEMA (MasterResumeJson)
       "institution": "string",
       "location": "string",
       "startDate": "YYYY-MM-DD",
-      "endDate": "YYYY-MM-DD | null",
+      "endDate": null,
       "gradeOrScore": "string",
       "focusAreas": ["string"]
     }
@@ -200,9 +202,9 @@ SCHEMA (MasterResumeJson)
     {
       "name": "string",
       "issuer": "string",
-      "year": number,
+      "year": 2024,
       "credentialId": "string",
-      "validUntil": "YYYY-MM-DD | null"
+      "validUntil": null
     }
   ],
 
@@ -210,7 +212,7 @@ SCHEMA (MasterResumeJson)
     {
       "title": "string",
       "issuer": "string",
-      "year": number,
+      "year": 2024,
       "description": ["string"]
     }
   ],
@@ -219,7 +221,7 @@ SCHEMA (MasterResumeJson)
     {
       "title": "string",
       "publisher": "string",
-      "year": number,
+      "year": 2024,
       "url": "string"
     }
   ],
@@ -230,7 +232,7 @@ SCHEMA (MasterResumeJson)
       "organization": "string",
       "location": "string",
       "startDate": "YYYY-MM-DD",
-      "endDate": "YYYY-MM-DD | null",
+      "endDate": null,
       "description": ["string"]
     }
   ],
