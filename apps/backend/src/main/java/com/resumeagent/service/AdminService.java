@@ -20,6 +20,7 @@ import org.springframework.stereotype.Service;
 
 import java.io.IOException;
 import java.time.Instant;
+import java.time.LocalDate;
 import java.util.Objects;
 import java.util.UUID;
 
@@ -83,6 +84,10 @@ public class AdminService {
                 .passwordHash(passwordEncoder.encode(request.getPassword()))
                 .userRole(UserRole.ADMIN)
                 .plan(UserPlan.FREE)
+                .resumeGenerationLimit(5)
+                .resumeGenerationUsed(0)
+                .usageMonth(LocalDate.now().withDayOfMonth(1))
+                .emailActive(false) // or true if verified immediately
                 .build();
 
         userRepository.save(admin);

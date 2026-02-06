@@ -19,7 +19,7 @@ public class ATSOptimizationAgent {
     public MasterResumeJson executeATSOptimizationAgent(
             MasterResumeJson resumeJson
     ) throws JsonProcessingException {
-        String basePrompt = promptLoader.load("ats_optimization_agent.prompt ");
+        String basePrompt = promptLoader.load("ats_optimization_agent.prompt");
 
         String finalPrompt = basePrompt
                 .replace("{{REWRITTEN_RESUME_JSON}}", objectMapper.writeValueAsString(resumeJson));

@@ -23,6 +23,7 @@ CREATE TABLE users (
     plan VARCHAR(20) NOT NULL DEFAULT 'FREE' CHECK (plan IN ('FREE', 'PRO')),
     resume_generation_limit INT NOT NULL DEFAULT 5,
     resume_generation_used INT NOT NULL DEFAULT 0,
+    usage_month DATE NOT NULL DEFAULT date_trunc('month', CURRENT_DATE),
     is_email_active BOOLEAN NOT NULL DEFAULT FALSE,
     created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
