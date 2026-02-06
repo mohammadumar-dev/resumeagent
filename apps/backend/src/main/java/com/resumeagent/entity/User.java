@@ -8,6 +8,7 @@ import lombok.*;
 import java.io.Serial;
 import java.io.Serializable;
 import java.time.Instant;
+import java.time.LocalDate;
 import java.util.UUID;
 
 @Entity
@@ -74,6 +75,10 @@ public class User implements Serializable {
 
     @Column(name = "resume_generation_used", nullable = false)
     private int resumeGenerationUsed = 0;
+
+    @Column(name = "usage_month", nullable = false)
+    private LocalDate usageMonth;
+
 
     // -------------------------------------------------------------------------
     // Status Flags

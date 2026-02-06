@@ -87,6 +87,14 @@
 			<scope>runtime</scope>
 		</dependency>
 
+		<!-- Source: https://mvnrepository.com/artifact/com.knuddels/jtokkit -->
+		<dependency>
+			<groupId>com.knuddels</groupId>
+			<artifactId>jtokkit</artifactId>
+			<version>1.1.0</version>
+			<scope>compile</scope>
+		</dependency>
+
 		<dependency>
 			<groupId>org.springframework.boot</groupId>
 			<artifactId>spring-boot-devtools</artifactId>

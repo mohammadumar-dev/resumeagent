@@ -1,7 +1,11 @@
 package com.resumeagent.repository;
 
 import com.resumeagent.entity.User;
+import jakarta.persistence.LockModeType;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Lock;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
 import java.util.Optional;
@@ -33,4 +37,18 @@ public interface UserRepository extends JpaRepository<User, UUID> {
      * @return true if email already registered
      */
     boolean existsByEmail(String email);
+
+    /**
+     * Find user by email with pessimistic lock
+     * Used for critical operations (e.g. password reset)
+     * Prevents concurrent modifications to the same user record
+     *
+     * @param email User email
+     * @return Optional containing user if found
+     */
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("SELECT u FROM User u WHERE u.email = :email")
+    Optional<User> findByEmailForUpdate(@Param("email") String email);
+
+
 }

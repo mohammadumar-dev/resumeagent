@@ -67,6 +67,7 @@ public class UserService {
                 .passwordHash(passwordEncoder.encode(request.getPassword()))
                 .userRole(UserRole.USER)
                 .plan(UserPlan.FREE)
+                .resumeGenerationLimit(5) // Free users get 5 resume generations per month
                 .build();
 
         userRepository.save(user);
