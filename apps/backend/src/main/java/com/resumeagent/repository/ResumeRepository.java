@@ -1,6 +1,5 @@
 package com.resumeagent.repository;
 
-import com.resumeagent.entity.MasterResume;
 import com.resumeagent.entity.Resume;
 import com.resumeagent.entity.User;
 import org.springframework.data.jpa.repository.JpaRepository;
@@ -17,4 +16,6 @@ public interface ResumeRepository extends JpaRepository<Resume, UUID> {
     boolean existsByUserId(UUID userId);
 
     Optional<Resume> findByUser(User user);
+
+    Optional<Resume> findByIdAndUserId(UUID id, UUID userId);
 }

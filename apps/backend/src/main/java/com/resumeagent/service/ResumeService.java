@@ -14,22 +14,30 @@ import com.resumeagent.entity.ResumeAgentLog;
 import com.resumeagent.entity.User;
 import com.resumeagent.entity.enums.AgentExecutionStatus;
 import com.resumeagent.entity.enums.ResumeStatus;
-import com.resumeagent.entity.enums.UserRole;
 import com.resumeagent.entity.model.JobDescriptionAnalyzerJson;
 import com.resumeagent.entity.model.MasterResumeJson;
 import com.resumeagent.entity.model.MatchingAgentJson;
+import com.resumeagent.render.GreenResumeDocxService;
+import com.resumeagent.render.BlueResumeDocxService;
 import com.resumeagent.repository.MasterResumeRepository;
 import com.resumeagent.repository.ResumeAgentLogRepository;
 import com.resumeagent.repository.ResumeRepository;
 import com.resumeagent.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
+import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.io.ByteArrayOutputStream;
+import java.io.IOException;
 import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.UUID;
 
 @Service
 @RequiredArgsConstructor
@@ -47,6 +55,13 @@ public class ResumeService {
     private final MatchingAgent matchingAgent;
     private final ResumeRewriteAgent resumeRewriteAgent;
     private final ATSOptimizationAgent atsOptimizationAgent;
+
+    // Resume Templates
+    private final BlueResumeDocxService blueResumeDocxService;
+    private final GreenResumeDocxService greenResumeDocxService;
+
+    // Content type for DOCX files
+    private static final String DOCX_CONTENT_TYPE = "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
 
     /**
      * Generates a tailored resume based on the provided job description
@@ -262,5 +277,87 @@ public class ResumeService {
 
     private String writeJson(Object value) throws JsonProcessingException {
         return objectMapper.writeValueAsString(value);
+    }
+
+    public ResponseEntity<byte[]> downloadResumeGreen(String email, UUID id) {
+        // Get user from email
+        User user = userRepository.findByEmail(email)
+                .orElseThrow(() -> new IllegalStateException("User not found"));
+
+        // Find resume by ID ensuring it belongs to the authenticated user
+        Resume resume = resumeRepository.findByIdAndUserId(id, user.getId())
+                .orElseThrow(() -> new IllegalStateException("Resume not found or access denied"));
+
+        try {
+            // Generate DOCX from resume JSON
+            ByteArrayOutputStream docxStream = greenResumeDocxService.generateResume(resume.getResumeJson());
+            byte[] docxBytes = docxStream.toByteArray();
+
+            // Build filename from job title and company if available
+            String filename = buildFilename(resume);
+
+            // Return the file as attachment
+            HttpHeaders headers = new HttpHeaders();
+            headers.setContentType(MediaType.parseMediaType(DOCX_CONTENT_TYPE));
+            headers.setContentDispositionFormData("attachment", filename);
+            headers.setContentLength(docxBytes.length);
+
+            return new ResponseEntity<>(docxBytes, headers, HttpStatus.OK);
+        } catch (IOException e) {
+            throw new RuntimeException("Failed to generate resume document", e);
+        }
+    }
+
+    public ResponseEntity<byte[]> downloadResumeBlue(String email, UUID id) {
+        // Get user from email
+        User user = userRepository.findByEmail(email)
+                .orElseThrow(() -> new IllegalStateException("User not found"));
+
+        // Find resume by ID ensuring it belongs to the authenticated user
+        Resume resume = resumeRepository.findByIdAndUserId(id, user.getId())
+                .orElseThrow(() -> new IllegalStateException("Resume not found or access denied"));
+
+        try {
+            // Generate DOCX from resume JSON
+            ByteArrayOutputStream docxStream = blueResumeDocxService.generateResume(resume.getResumeJson());
+            byte[] docxBytes = docxStream.toByteArray();
+
+            // Build filename from job title and company if available
+            String filename = buildFilename(resume);
+
+            // Return the file as attachment
+            HttpHeaders headers = new HttpHeaders();
+            headers.setContentType(MediaType.parseMediaType(DOCX_CONTENT_TYPE));
+            headers.setContentDispositionFormData("attachment", filename);
+            headers.setContentLength(docxBytes.length);
+
+            return new ResponseEntity<>(docxBytes, headers, HttpStatus.OK);
+        } catch (IOException e) {
+            throw new RuntimeException("Failed to generate resume document", e);
+        }
+    }
+
+    /**
+     * Builds a descriptive filename for the resume download.
+     */
+    private String buildFilename(Resume resume) {
+        StringBuilder filename = new StringBuilder("Resume");
+
+        if (resume.getJobTitleTargeted() != null && !resume.getJobTitleTargeted().isBlank()) {
+            filename.append("_").append(sanitizeFilename(resume.getJobTitleTargeted()));
+        }
+        if (resume.getCompanyTargeted() != null && !resume.getCompanyTargeted().isBlank()) {
+            filename.append("_").append(sanitizeFilename(resume.getCompanyTargeted()));
+        }
+
+        filename.append(".docx");
+        return filename.toString();
+    }
+
+    /**
+     * Sanitizes a string for use in a filename.
+     */
+    private String sanitizeFilename(String input) {
+        return input.replaceAll("[^a-zA-Z0-9.-]", "_").substring(0, Math.min(input.length(), 30));
     }
 }
