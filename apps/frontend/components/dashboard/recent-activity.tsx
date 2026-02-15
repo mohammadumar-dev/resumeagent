@@ -35,103 +35,185 @@ const activities = [
 ];
 
 const statusStyles = {
-  emerald: "bg-emerald-50 text-emerald-700 ring-emerald-600/20 dark:bg-emerald-500/10 dark:text-emerald-400 dark:ring-emerald-500/20",
-  amber: "bg-amber-50 text-amber-700 ring-amber-600/20 dark:bg-amber-500/10 dark:text-amber-400 dark:ring-amber-500/20",
-  red: "bg-red-50 text-red-700 ring-red-600/20 dark:bg-red-500/10 dark:text-red-400 dark:ring-red-500/20",
+  emerald:
+    "bg-emerald-500/10 text-emerald-500 border-emerald-500/20",
+  amber:
+    "bg-amber-500/10 text-amber-500 border-amber-500/20",
+  red:
+    "bg-red-500/10 text-red-500 border-red-500/20",
 };
 
 export function RecentActivity() {
   return (
-    <div className="flex flex-col gap-6">
+    <div className="flex flex-col gap-8">
+
+      {/* Header */}
       <div className="flex items-center justify-between">
-        <h3 className="text-lg font-semibold">Recent Activity</h3>
+        <h3 className="text-lg font-semibold tracking-tight">
+          Recent Activity
+        </h3>
         <Link
           href="/dashboard/activity"
-          className="text-sm font-medium text-primary hover:text-primary/80"
+          className="text-sm font-medium text-primary hover:opacity-80 transition-opacity"
         >
           View All
         </Link>
       </div>
 
-      <Card className="overflow-hidden border">
-        {activities.map((activity, index) => (
-          <div
-            key={activity.id}
-            className={`p-4 transition-colors hover:bg-muted/50 ${
-              index !== activities.length - 1 ? "border-b" : ""
-            }`}
-          >
-            <div className="mb-1 flex items-start justify-between gap-3">
-              <div>
-                <h4 className="line-clamp-1 text-sm font-semibold">
-                  {activity.title}
-                </h4>
-                <p className="text-xs font-medium text-muted-foreground">
-                  {activity.company}
-                </p>
-              </div>
-              <Badge
-                variant="outline"
-                className={`inline-flex items-center rounded-full px-2 py-1 text-[10px] font-medium ring-1 ring-inset ${
-                  statusStyles[activity.statusColor as keyof typeof statusStyles]
-                }`}
-              >
-                {activity.status}
-              </Badge>
-            </div>
+      {/* Glass Container */}
+      <Card className="
+        relative
+        overflow-hidden
+        border
+        bg-card/70
+        backdrop-blur-xl
+        shadow-sm
+      ">
 
-            <div className="mt-3 flex items-center justify-between">
-              <span className="text-[11px] text-muted-foreground">
-                {activity.time}
-              </span>
-              <div className="flex gap-2">
-                {activity.actions.includes("download") && (
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="size-8 text-muted-foreground hover:text-primary"
-                  >
-                    <Download className="size-4" />
-                  </Button>
-                )}
-                {activity.actions.includes("edit") && (
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="size-8 text-muted-foreground hover:text-primary"
-                  >
-                    <Edit className="size-4" />
-                  </Button>
-                )}
-                {activity.actions.includes("view") && (
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="size-8 text-muted-foreground hover:text-primary"
-                  >
-                    <Eye className="size-4" />
-                  </Button>
-                )}
+        <div className="divide-y">
+
+          {activities.map((activity) => (
+            <div
+              key={activity.id}
+              className="
+                group
+                relative
+                flex flex-col gap-4
+                p-5
+                transition-all duration-300
+                hover:bg-muted/40
+              "
+            >
+
+              {/* Top Section */}
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+
+                <div className="flex flex-col gap-1">
+                  <h4 className="text-sm font-semibold tracking-tight text-foreground">
+                    {activity.title}
+                  </h4>
+                  <p className="text-xs font-medium text-muted-foreground">
+                    {activity.company}
+                  </p>
+                </div>
+
+                <Badge
+                  variant="outline"
+                  className={`
+                    w-fit
+                    rounded-full
+                    px-3 py-1
+                    text-[11px]
+                    font-medium
+                    backdrop-blur-sm
+                    border
+                    ${statusStyles[activity.statusColor as keyof typeof statusStyles]}
+                  `}
+                >
+                  {activity.status}
+                </Badge>
               </div>
+
+              {/* Bottom Section */}
+              <div className="flex items-center justify-between">
+
+                <span className="text-[11px] text-muted-foreground">
+                  {activity.time}
+                </span>
+
+                <div className="flex items-center gap-2">
+
+                  {activity.actions.includes("download") && (
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="
+                        size-8 rounded-full
+                        text-muted-foreground
+                        hover:bg-primary/10
+                        hover:text-primary
+                        transition-colors
+                      "
+                    >
+                      <Download className="size-4" />
+                    </Button>
+                  )}
+
+                  {activity.actions.includes("edit") && (
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="
+                        size-8 rounded-full
+                        text-muted-foreground
+                        hover:bg-primary/10
+                        hover:text-primary
+                        transition-colors
+                      "
+                    >
+                      <Edit className="size-4" />
+                    </Button>
+                  )}
+
+                  {activity.actions.includes("view") && (
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="
+                        size-8 rounded-full
+                        text-muted-foreground
+                        hover:bg-primary/10
+                        hover:text-primary
+                        transition-colors
+                      "
+                    >
+                      <Eye className="size-4" />
+                    </Button>
+                  )}
+
+                </div>
+              </div>
+
             </div>
-          </div>
-        ))}
+          ))}
+        </div>
       </Card>
 
-      {/* Pro Tip Card */}
-      <Card className="border-primary/20 bg-primary/5 p-4">
-        <div className="flex gap-3">
-          <Lightbulb className="mt-0.5 size-5 text-primary" />
+      {/* Pro Tip */}
+      <Card
+        className="
+          relative
+          overflow-hidden
+          border
+          bg-primary/5
+          backdrop-blur-md
+          shadow-sm
+        "
+      >
+        <div className="flex gap-4 p-5">
+
+          <div className="
+            flex size-10 shrink-0 items-center justify-center
+            rounded-lg
+            bg-primary/10
+            text-primary
+          ">
+            <Lightbulb className="size-5" />
+          </div>
+
           <div>
-            <h4 className="mb-1 text-sm font-bold">Pro Tip</h4>
+            <h4 className="mb-1 text-sm font-semibold">
+              Pro Tip
+            </h4>
             <p className="text-xs leading-relaxed text-muted-foreground">
               Resumes with quantifiable metrics (e.g., "Increased sales by 20%")
               are 40% more likely to pass ATS scans. Update your Master Profile
-              to include more numbers.
+              to include measurable achievements.
             </p>
           </div>
         </div>
       </Card>
+
     </div>
   );
 }
