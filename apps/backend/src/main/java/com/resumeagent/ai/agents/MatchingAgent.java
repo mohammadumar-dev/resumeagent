@@ -26,11 +26,9 @@ public class MatchingAgent {
                 .replace("{{JOB_DESCRIPTION}}", objectMapper.writeValueAsString(jobDescription));
 
         String output = llm.generate(finalPrompt);
-
         String json = sanitizeJson(output);
 
         try {
-            System.out.println("Matching analysis done successfully.");
             return objectMapper.readValue(json, MatchingAgentJson.class);
         } catch (Exception e) {
             throw new RuntimeException(
