@@ -115,7 +115,6 @@ public class ResumeService {
                 () -> jobDescriptionAnalyzerAgent.executeJobDescriptionAnalyzerAgent(jobDescription)
         );
 
-        System.out.println("Job Description Analysis JSON: " + jobDescriptionAnalyzerJson);
         // Step 2: Matching
         MatchingAgentJson matchingAgentJson = executeAgentWithLog(
                 "MatchingAgent",

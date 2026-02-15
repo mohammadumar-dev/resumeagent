@@ -20,6 +20,7 @@ import org.springframework.stereotype.Service;
 
 import java.io.IOException;
 import java.time.Instant;
+import java.time.LocalDate;
 import java.util.Objects;
 import java.util.UUID;
 
@@ -68,6 +69,9 @@ public class UserService {
                 .userRole(UserRole.USER)
                 .plan(UserPlan.FREE)
                 .resumeGenerationLimit(5) // Free users get 5 resume generations per month
+                .resumeGenerationUsed(0)
+                .usageMonth(LocalDate.now().withDayOfMonth(1))
+                .emailActive(false)
                 .build();
 
         userRepository.save(user);

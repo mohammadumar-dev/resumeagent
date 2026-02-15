@@ -25,11 +25,9 @@ public class ATSOptimizationAgent {
                 .replace("{{REWRITTEN_RESUME_JSON}}", objectMapper.writeValueAsString(resumeJson));
 
         String output = llm.generate(finalPrompt);
-
         String json = sanitizeJson(output);
 
         try {
-            System.out.println("ATS optimization done successfully.");
             return objectMapper.readValue(json, MasterResumeJson.class);
         } catch (Exception e) {
             throw new RuntimeException(

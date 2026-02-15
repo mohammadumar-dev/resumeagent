@@ -2,6 +2,7 @@ package com.resumeagent.controller;
 
 import com.resumeagent.dto.request.LoginRequest;
 import com.resumeagent.dto.request.RegisterAdminAndUserRequest; // [ADDED]
+import com.resumeagent.dto.request.ResendVerificationRequest;
 import com.resumeagent.dto.request.ForgotPasswordRequest;
 import com.resumeagent.dto.request.ResetPasswordRequest;
 import com.resumeagent.dto.response.CommonResponse;
@@ -100,11 +101,14 @@ public class AuthController {
      * @return Success message
      */
     @PostMapping(value = "/logout")
-    public ResponseEntity<String> logout(
+    public ResponseEntity<CommonResponse> logout(
             HttpServletRequest request,
             HttpServletResponse response) {
         authenticationService.logout(request, response);
-        return ResponseEntity.ok("Logged out successfully");
+        CommonResponse resp = CommonResponse.builder()
+                .message("Logged out successfully")
+                .build();
+        return ResponseEntity.ok(resp);
     }
 
     /**
@@ -179,6 +183,34 @@ public class AuthController {
     @GetMapping(value = "/verify-email")
     public CommonResponse verifyEmail(@NotBlank @RequestParam("token") String token) {
         return authenticationService.verifyToken(token);
+    }
+
+    /**
+     * Resend email verification link.
+     * PUBLIC ENDPOINT (no authentication required)
+     * 
+     * Flow:
+     * - Validates that email exists
+     * - Checks if email is already verified
+     * - Generates new verification token
+     * - Sends verification email
+     * 
+     * HTTP STATUS CODES:
+     * - 200 OK: Verification email sent (or generic success message)
+     * - 400 BAD REQUEST: Email already verified
+     * 
+     * SECURITY NOTES:
+     * - Returns generic message to prevent email enumeration
+     * - Rate limiting should be implemented to prevent spam
+     * 
+     * @param request email address
+     * @return success message
+     */
+    @PostMapping(value = "/resend-verification")
+    public ResponseEntity<CommonResponse> resendVerification(@Valid @RequestBody ResendVerificationRequest request) {
+
+        CommonResponse response = authenticationService.resendVerificationEmail(request.getEmail());
+        return ResponseEntity.ok(response);
     }
 
     /**

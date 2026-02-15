@@ -24,11 +24,9 @@ public class ResumeParserAgent {
         );
 
         String output = llm.generate(finalPrompt);
-
         String json = sanitizeJson(output);
 
         try {
-            System.out.println("Resume parsing done successfully.");
             return mapper.readValue(json, MasterResumeJson.class);
         } catch (Exception e) {
             throw new RuntimeException(

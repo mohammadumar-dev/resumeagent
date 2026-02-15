@@ -24,11 +24,9 @@ public class JobDescriptionAnalyzerAgent {
         );
 
         String output = llm.generate(finalPrompt);
-
         String json = sanitizeJson(output);
 
         try {
-            System.out.println("Job description analysis done successfully. \n" + json);
             return objectMapper.readValue(json, JobDescriptionAnalyzerJson.class);
         } catch (Exception e) {
             throw new RuntimeException(

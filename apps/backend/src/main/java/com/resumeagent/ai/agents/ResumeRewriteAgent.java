@@ -29,11 +29,9 @@ public class ResumeRewriteAgent {
                 .replace("{{MATCHING_AGENT_JSON}}", objectMapper.writeValueAsString(matchingAgentJson));
 
         String output = llm.generate(finalPrompt);
-
         String json = sanitizeJson(output);
 
         try {
-            System.out.println("Resume rewriting done successfully.");
             return objectMapper.readValue(json, MasterResumeJson.class);
         } catch (Exception e) {
             throw new RuntimeException(

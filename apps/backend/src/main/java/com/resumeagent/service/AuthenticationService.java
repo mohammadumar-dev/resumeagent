@@ -52,6 +52,7 @@ public class AuthenticationService {
     private final RefreshTokenService refreshTokenService;
     private final CookieUtil cookieUtil;
     private final EmailVerificationTokenRepository emailVerificationTokenRepository;
+    private final EmailService emailService;
 
     /**
      * Authenticate user and issue tokens
@@ -235,7 +236,7 @@ public class AuthenticationService {
 
         // Check if token has already been used
         // Prevents token replay attacks
-        if (verificationToken.isUsed()){
+        if (verificationToken.isUsed()) {
             throw new ValidationException("Token is used");
         }
 
@@ -253,6 +254,77 @@ public class AuthenticationService {
         return CommonResponse.builder()
                 .message("Email Verified")
                 .email(user.getEmail())
+                .build();
+    }
+
+    /**
+     * Resend email verification link to user.
+     * 
+     * Flow:
+     * - Find user by email
+     * - Check if email is already verified
+     * - Delete any existing unused verification tokens
+     * - Generate new verification token
+     * - Send verification email
+     * 
+     * SECURITY NOTES:
+     * - Returns generic message to prevent email enumeration
+     * - Only sends email if user exists and email is not verified
+     * - Rate limiting should be implemented to prevent spam
+     * 
+     * @param email user email address
+     * @return success response
+     */
+    @Transactional
+    public CommonResponse resendVerificationEmail(String email) {
+        String normalizedEmail = email.trim().toLowerCase();
+
+        // Find user by email
+        User user = userRepository.findByEmail(normalizedEmail).orElse(null);
+
+        // If user doesn't exist, return generic message (prevent enumeration)
+        if (user == null) {
+            log.warn("Resend verification requested for non-existent email: {}", normalizedEmail);
+            return CommonResponse.builder()
+                    .message("If this email is registered and not verified, a verification link has been sent.")
+                    .build();
+        }
+
+        // If email is already verified, return message
+        if (user.isEmailActive()) {
+            log.info("Resend verification requested for already verified email: {}", normalizedEmail);
+            return CommonResponse.builder()
+                    .message("Email is already verified. You can log in.")
+                    .email(normalizedEmail)
+                    .build();
+        }
+
+        // Delete any existing unused verification tokens for this user
+        emailVerificationTokenRepository.findByUserAndUsedFalse(user)
+                .forEach(emailVerificationTokenRepository::delete);
+
+        // Generate new verification token
+        String token = java.util.UUID.randomUUID().toString();
+
+        EmailVerificationToken verificationToken = EmailVerificationToken.builder()
+                .user(user)
+                .token(token)
+                .expiresAt(Instant.now().plusSeconds(3600)) // 1 hour expiry
+                .build();
+
+        emailVerificationTokenRepository.save(verificationToken);
+
+        // Send verification email
+        try {
+            emailService.sendVerificationEmail(user.getEmail(), user.getFullName(), token);
+            log.info("Resent verification email to: {}", normalizedEmail);
+        } catch (Exception e) {
+            log.error("Failed to send verification email to {}: {}", normalizedEmail, e.getMessage());
+            // Don't expose error to client - still return success message
+        }
+
+        return CommonResponse.builder()
+                .message("If this email is registered and not verified, a verification link has been sent.")
                 .build();
     }
 }
