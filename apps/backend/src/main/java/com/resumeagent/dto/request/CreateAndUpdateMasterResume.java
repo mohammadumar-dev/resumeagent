@@ -23,7 +23,7 @@ public class CreateAndUpdateMasterResume {
     private List<String> professionalAffiliations;
     private List<AdditionalSection> additionalSections;
 
-    /* ===================== Nested DTOs ===================== */
+    /* ===================== Nested Models ===================== */
 
     @Data
     public static class Metadata {
@@ -58,30 +58,38 @@ public class CreateAndUpdateMasterResume {
         private List<String> domainSpecific;
     }
 
+    /* ===================== Experience ===================== */
+
     @Data
     public static class Experience {
         private String role;
         private String organization;
         private String location;
         private String employmentType;
+
         private LocalDate startDate;
         private LocalDate endDate;
-        private String context;
+
         private List<String> responsibilities;
+        private String context;
         private List<String> achievements;
         private List<String> skillsUsed;
     }
 
+    /* ===================== Projects ===================== */
+
     @Data
     public static class ProjectOrWork {
         private String title;
-        private String type;
-        private List<String> description; // ✅ CHANGED
+        private String type; // project | freelance | open-source
+        private String link;
+
+        private List<String> description;
         private List<String> outcomes;
         private List<String> skillsUsed;
-        private String link;
     }
 
+    /* ===================== Education ===================== */
 
     @Data
     public static class Education {
@@ -89,11 +97,15 @@ public class CreateAndUpdateMasterResume {
         private String fieldOfStudy;
         private String institution;
         private String location;
-        private Integer startYear;
-        private Integer endYear;
-        private String gradeOrScore;
-        private String notes;
+
+        private LocalDate startDate;
+        private LocalDate endDate;
+
+        private String gradeOrScore; // CGPA / Percentage
+        private List<String> focusAreas;
     }
+
+    /* ===================== Certifications ===================== */
 
     @Data
     public static class Certification {
@@ -104,31 +116,41 @@ public class CreateAndUpdateMasterResume {
         private LocalDate validUntil;
     }
 
+    /* ===================== Awards ===================== */
+
     @Data
     public static class AwardAndHonor {
         private String title;
         private String issuer;
         private Integer year;
-        private String description;
+        private List<String> description;
     }
+
+    /* ===================== Publications ===================== */
 
     @Data
     public static class Publication {
         private String title;
-        private String platform;
+        private String publisher;
         private Integer year;
         private String url;
     }
+
+    /* ===================== Volunteering ===================== */
 
     @Data
     public static class VolunteerExperience {
         private String role;
         private String organization;
         private String location;
+
         private LocalDate startDate;
         private LocalDate endDate;
-        private String description;
+
+        private List<String> description;
     }
+
+    /* ===================== Languages ===================== */
 
     @Data
     public static class Language {
@@ -136,9 +158,11 @@ public class CreateAndUpdateMasterResume {
         private String proficiency;
     }
 
+    /* ===================== Custom Sections ===================== */
+
     @Data
     public static class AdditionalSection {
         private String title;
-        private String content;
+        private List<String> content;
     }
 }
