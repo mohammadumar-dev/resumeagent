@@ -12,7 +12,6 @@ public class MasterResumeJson {
     private Header header;
     private String summary;
     private CoreSkills coreSkills;
-
     private List<Experience> experience;
     private List<ProjectOrWork> projectsOrWork;
     private List<Education> education;
@@ -21,7 +20,6 @@ public class MasterResumeJson {
     private List<Publication> publications;
     private List<VolunteerExperience> volunteerExperience;
     private List<Language> languages;
-
     private List<String> professionalAffiliations;
     private List<AdditionalSection> additionalSections;
 

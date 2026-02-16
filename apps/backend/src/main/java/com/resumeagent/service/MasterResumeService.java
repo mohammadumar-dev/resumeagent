@@ -97,7 +97,7 @@ public class MasterResumeService {
         }
 
         return CommonResponse.builder()
-                .message("Master resume created from text successfully \n \n" + parsedResume)
+                .message("Master resume created from text successfully")
                 .email(email)
                 .build();
     }
