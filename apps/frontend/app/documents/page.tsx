@@ -6,9 +6,11 @@ import {
   SidebarInset,
   SidebarProvider,
 } from "@/components/ui/sidebar"
+import { ProtectedRoute } from "@/components/ProtectedRoute";
 
 export default function DocumentsPage() {
   return (
+    <ProtectedRoute>
     <SidebarProvider
       style={
         {
@@ -31,5 +33,6 @@ export default function DocumentsPage() {
         </div>
       </SidebarInset>
     </SidebarProvider>
+    </ProtectedRoute>
   )
 }

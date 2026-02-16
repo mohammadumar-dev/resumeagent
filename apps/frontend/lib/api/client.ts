@@ -19,9 +19,9 @@ export class ApiClient {
         const url = `${this.baseUrl}${endpoint}`;
 
         const defaultHeaders: HeadersInit = {
-            'Content-Type': 'application/json',
             'Accept': 'application/json',
         };
+
 
         const config: RequestInit = {
             ...options,
@@ -90,35 +90,42 @@ export class ApiClient {
         });
     }
 
-    /**
-     * POST request
-     */
     async post<T>(
         endpoint: string,
         data?: unknown,
         options?: RequestInit
     ): Promise<T> {
+        const isFormData = data instanceof FormData;
+
         return this.request<T>(endpoint, {
             ...options,
             method: 'POST',
-            body: data ? JSON.stringify(data) : undefined,
+            body: isFormData ? (data as FormData) : data ? JSON.stringify(data) : undefined,
+            headers: {
+                ...(isFormData ? {} : { 'Content-Type': 'application/json' }),
+                ...options?.headers,
+            },
         });
     }
 
-    /**
-     * PUT request
-     */
     async put<T>(
         endpoint: string,
         data?: unknown,
         options?: RequestInit
     ): Promise<T> {
+        const isFormData = data instanceof FormData;
+
         return this.request<T>(endpoint, {
             ...options,
             method: 'PUT',
-            body: data ? JSON.stringify(data) : undefined,
+            body: isFormData ? (data as FormData) : data ? JSON.stringify(data) : undefined,
+            headers: {
+                ...(isFormData ? {} : { 'Content-Type': 'application/json' }),
+                ...options?.headers,
+            },
         });
     }
+
 
     /**
      * DELETE request
