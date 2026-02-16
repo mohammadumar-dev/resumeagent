@@ -4,11 +4,16 @@ import * as React from "react";
 import {
   IconChartBar,
   IconFileText,
+  IconFilePlus,
   IconFileTextAi,
   IconHelp,
   IconLayout2,
   IconNotification,
   IconSettings,
+  IconFileCertificate,
+  IconFileTextFilled,
+  IconFileCheckFilled,
+  IconFileDatabase,
 } from "@tabler/icons-react";
 
 import { NavMain } from "@/components/nav-main";
@@ -36,6 +41,11 @@ const data = {
       title: "Documents",
       url: "/documents",
       icon: IconFileText,
+    },
+    {
+      title: "Master Resume",
+      url: "/master-resume",
+      icon: IconFileDatabase,
     },
     {
       title: "Analytics",

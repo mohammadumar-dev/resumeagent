@@ -1,4 +1,5 @@
 import { ShieldCheck, FileEdit } from "lucide-react";
+import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -105,6 +106,7 @@ export function MasterResumeCard() {
           <div className="flex items-center justify-start sm:justify-end">
 
             <Button
+              asChild
               variant="outline"
               className="
                 h-9 gap-2 rounded-full
@@ -116,8 +118,10 @@ export function MasterResumeCard() {
                 hover:bg-primary/5
               "
             >
-              <FileEdit className="size-4" />
-              Edit Source
+              <Link href="/master-resume/create">
+                <FileEdit className="size-4" />
+                Edit Source
+              </Link>
             </Button>
 
           </div>
