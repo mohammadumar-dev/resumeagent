@@ -136,6 +136,35 @@ export class ApiClient {
             method: 'DELETE',
         });
     }
+
+    async blob(endpoint: string, options?: RequestInit): Promise<Blob> {
+        const url = `${this.baseUrl}${endpoint}`;
+
+        const response = await fetch(url, {
+            ...options,
+            method: options?.method ?? "GET",
+            credentials: "include",
+        });
+
+        if (!response.ok) {
+            const contentType = response.headers.get("content-type");
+            const isJson = contentType?.includes("application/json");
+
+            if (isJson) {
+                const error = await response.json();
+                throw error;
+            }
+
+            const text = await response.text();
+            throw {
+                message: text || response.statusText,
+                status: response.status,
+            };
+        }
+
+        return response.blob();
+    }
+
 }
 
 // Export singleton instance
