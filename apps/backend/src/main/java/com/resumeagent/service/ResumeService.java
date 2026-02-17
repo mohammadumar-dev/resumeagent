@@ -7,7 +7,7 @@ import com.resumeagent.ai.agents.JobDescriptionAnalyzerAgent;
 import com.resumeagent.ai.agents.MatchingAgent;
 import com.resumeagent.ai.agents.ResumeRewriteAgent;
 import com.resumeagent.ai.util.TokenCounter;
-import com.resumeagent.dto.response.CommonResponse;
+import com.resumeagent.dto.response.*;
 import com.resumeagent.entity.MasterResume;
 import com.resumeagent.entity.Resume;
 import com.resumeagent.entity.ResumeAgentLog;
@@ -24,11 +24,14 @@ import com.resumeagent.repository.ResumeAgentLogRepository;
 import com.resumeagent.repository.ResumeRepository;
 import com.resumeagent.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
+import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -36,8 +39,10 @@ import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.time.LocalDate;
 import java.util.ArrayList;
+import java.util.EnumSet;
 import java.util.List;
 import java.util.UUID;
+import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -59,6 +64,9 @@ public class ResumeService {
     // Resume Templates
     private final BlueResumeDocxService blueResumeDocxService;
     private final GreenResumeDocxService greenResumeDocxService;
+
+    // WebSocket Messaging
+    private final SimpMessagingTemplate messagingTemplate;
 
     // Content type for DOCX files
     private static final String DOCX_CONTENT_TYPE = "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
@@ -209,6 +217,10 @@ public class ResumeService {
             AgentOutputSerializer<T> outputSerializer,
             AgentCall<T> action
     ) throws JsonProcessingException {
+        messagingTemplate.convertAndSend(
+                "/topic/resume-status/" + user.getId(),
+                new AgentStatusMessageResponse(agentName, "STARTED")
+        );
         long start = System.nanoTime();
         try {
             T result = action.call();
@@ -223,6 +235,12 @@ public class ResumeService {
                     tokensOutput,
                     start
             ));
+
+            messagingTemplate.convertAndSend(
+                    "/topic/resume-status/" + user.getId(),
+                    new AgentStatusMessageResponse(agentName, "SUCCESS")
+            );
+
             return result;
         } catch (Exception ex) {
             String errorMessage = ex.getMessage();
@@ -239,6 +257,11 @@ public class ResumeService {
             if (ex instanceof JsonProcessingException jsonProcessingException) {
                 throw jsonProcessingException;
             }
+
+            messagingTemplate.convertAndSend(
+                    "/topic/resume-status/" + user.getId(),
+                    new AgentStatusMessageResponse(agentName, "FAILED")
+            );
             throw new RuntimeException("Agent execution failed: " + agentName, ex);
         }
     }
@@ -358,5 +381,54 @@ public class ResumeService {
      */
     private String sanitizeFilename(String input) {
         return input.replaceAll("[^a-zA-Z0-9.-]", "_").substring(0, Math.min(input.length(), 30));
+    }
+
+
+    @Transactional
+    public ResumeListResponse getResumeList(String email, Pageable pageable) {
+        User user = userRepository.findByEmailForUpdate(email)
+                .orElseThrow(() -> new IllegalStateException("Authenticated user not found"));
+
+        Page<Resume> resumesPage = resumeRepository.findByUserAndStatusIn(
+                user,
+                EnumSet.of(ResumeStatus.ACTIVE, ResumeStatus.ARCHIVED),
+                pageable
+        );
+
+        List<ResumeListItemResponse> items = resumesPage.getContent().stream()
+                .map(resume -> ResumeListItemResponse.builder()
+                        .id(resume.getId().toString())
+                        .jobTitle(resume.getJobTitleTargeted())
+                        .companyName(resume.getCompanyTargeted())
+                        .status(resume.getStatus())
+                        .createdAt(resume.getCreatedAt() == null ? null : resume.getCreatedAt().toString())
+                        .updatedAt(resume.getUpdatedAt() == null ? null : resume.getUpdatedAt().toString())
+                        .build())
+                .collect(Collectors.toList());
+
+        return ResumeListResponse.builder()
+                .items(items)
+                .page(resumesPage.getNumber())
+                .size(resumesPage.getSize())
+                .totalElements(resumesPage.getTotalElements())
+                .totalPages(resumesPage.getTotalPages())
+                .hasNext(resumesPage.hasNext())
+                .hasPrevious(resumesPage.hasPrevious())
+                .build();
+    }
+
+    @Transactional(readOnly = true)
+    public MasterResumeResponse getResumeById(String email, UUID id) {
+
+        User user = userRepository.findByEmail(email)
+                .orElseThrow(() ->
+                        new IllegalStateException("Authenticated user not found"));
+
+        Resume resume = resumeRepository.findByIdAndUserId(id, user.getId())
+                .orElseThrow(() -> new IllegalStateException("Resume not found"));
+
+        return MasterResumeResponse.builder()
+                .resumeJson(resume.getResumeJson())
+                .build();
     }
 }
