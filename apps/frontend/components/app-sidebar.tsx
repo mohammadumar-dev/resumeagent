@@ -38,9 +38,9 @@ const data = {
       icon: IconLayout2,
     },
     {
-      title: "Documents",
-      url: "/documents",
-      icon: IconFileText,
+      title: "Resumes",
+      url: "/resume",
+      icon: IconFileTextAi,
     },
     {
       title: "Master Resume",

@@ -1,6 +1,7 @@
 import { Sparkles, PlusCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
+import Link from "next/link";
 
 export function WelcomeHero() {
   return (
@@ -64,8 +65,10 @@ export function WelcomeHero() {
                   active:scale-[0.98]
                 "
               >
-                <PlusCircle className="size-5 transition-transform group-hover:rotate-90 duration-300" />
-                Create New Version
+                <Link href="/resume/generate" className="flex items-center gap-2">
+                  <PlusCircle className="size-5 transition-transform group-hover:rotate-90 duration-300" />
+                  Create New Version
+                </Link>
               </Button>
             </div>
           </div>

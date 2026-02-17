@@ -23,7 +23,6 @@ export default function CreateMasterResumePage() {
             <div className="@container/main flex flex-1 flex-col gap-2">
               <div className="flex flex-col gap-4 py-4 md:gap-6 md:py-6">
                 <main className="mx-auto w-full max-w-7xl flex-1 px-4 py-8 sm:px-6 md:py-12 lg:px-8">
-                   {/* <CreateMasterResumeForm /> */}
                   <CreateMasterResumeFromTextForm />
                 </main>
               </div>
