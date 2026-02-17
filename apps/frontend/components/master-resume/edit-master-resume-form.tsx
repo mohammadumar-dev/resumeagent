@@ -7,7 +7,11 @@ import { toast } from "sonner";
 import { useAuth } from "@/contexts/AuthContext";
 import { masterResumeApi } from "@/lib/api/master-resume";
 import type { ApiError } from "@/types/auth";
-import type { CreateAndUpdateMasterResumeRequest } from "@/types/master-resume";
+import type {
+  CreateAndUpdateMasterResumeRequest,
+  ViewMasterResumeResponse,
+  MasterResumeViewResponse,
+} from "@/types/master-resume";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -262,9 +266,132 @@ function toNumberOrUndefined(value: string): number | undefined {
   return Number.isFinite(num) ? num : undefined;
 }
 
-export function CreateMasterResumeForm() {
+function joinCsv(items?: string[] | null): string {
+  if (!items?.length) return "";
+  return items
+    .map((item) => item?.trim?.() ?? "")
+    .filter(Boolean)
+    .join(", ");
+}
+
+function joinLines(items?: string[] | null): string {
+  if (!items?.length) return "";
+  return items
+    .map((item) => item?.trim?.() ?? "")
+    .filter(Boolean)
+    .join("\n");
+}
+
+function buildFormFromResume(
+  resume: ViewMasterResumeResponse,
+  userEmail?: string,
+  userName?: string,
+): FormState {
+  const header = resume.header;
+  const links = header?.links;
+  const coreSkills = resume.coreSkills;
+
+  return {
+    ...initialState,
+    version: resume.metadata?.version ?? "v1",
+    fullName: header?.fullName ?? userName ?? "",
+    headline: header?.headline ?? "",
+    location: header?.location ?? "",
+    email: header?.email ?? userEmail ?? "",
+    phone: header?.phone ?? "",
+    linkedin: links?.linkedin ?? "",
+    github: links?.github ?? "",
+    portfolio: links?.portfolio ?? "",
+    website: links?.website ?? "",
+    otherLinks: joinCsv(links?.other),
+    summary: resume.summary ?? "",
+    technicalSkills: joinCsv(coreSkills?.technical),
+    professionalSkills: joinCsv(coreSkills?.professional),
+    softSkills: joinCsv(coreSkills?.soft),
+    tools: joinCsv(coreSkills?.tools),
+    domainSkills: joinCsv(coreSkills?.domainSpecific),
+    professionalAffiliations: joinCsv(resume.professionalAffiliations),
+    experience:
+      resume.experience?.map((exp) => ({
+        role: exp.role ?? "",
+        organization: exp.organization ?? "",
+        location: exp.location ?? "",
+        employmentType: exp.employmentType ?? "",
+        startDate: exp.startDate ?? "",
+        endDate: exp.endDate ?? "",
+        context: exp.context ?? "",
+        responsibilities: joinLines(exp.responsibilities),
+        achievements: joinLines(exp.achievements),
+        skillsUsed: joinCsv(exp.skillsUsed),
+      })) ?? [],
+    projectsOrWork:
+      resume.projectsOrWork?.map((project) => ({
+        title: project.title ?? "",
+        type: project.type ?? "",
+        description: joinLines(project.description),
+        outcomes: joinLines(project.outcomes),
+        skillsUsed: joinCsv(project.skillsUsed),
+        link: project.link ?? "",
+      })) ?? [],
+    education:
+      resume.education?.map((edu) => ({
+        degree: edu.degree ?? "",
+        fieldOfStudy: edu.fieldOfStudy ?? "",
+        institution: edu.institution ?? "",
+        location: edu.location ?? "",
+        startDate: edu.startDate ?? "",
+        endDate: edu.endDate ?? "",
+        gradeOrScore: edu.gradeOrScore ?? "",
+        focusAreas: joinLines(edu.focusAreas),
+      })) ?? [],
+    certifications:
+      resume.certifications?.map((cert) => ({
+        name: cert.name ?? "",
+        issuer: cert.issuer ?? "",
+        year: cert.year?.toString() ?? "",
+        credentialId: cert.credentialId ?? "",
+        validUntil: cert.validUntil ?? "",
+      })) ?? [],
+    awardsAndHonors:
+      resume.awardsAndHonors?.map((award) => ({
+        title: award.title ?? "",
+        issuer: award.issuer ?? "",
+        year: award.year?.toString() ?? "",
+        description: joinLines(award.description),
+      })) ?? [],
+    publications:
+      resume.publications?.map((publication) => ({
+        title: publication.title ?? "",
+        publisher: publication.publisher ?? "",
+        year: publication.year?.toString() ?? "",
+        url: publication.url ?? "",
+      })) ?? [],
+    volunteerExperience:
+      resume.volunteerExperience?.map((volunteer) => ({
+        role: volunteer.role ?? "",
+        organization: volunteer.organization ?? "",
+        location: volunteer.location ?? "",
+        startDate: volunteer.startDate ?? "",
+        endDate: volunteer.endDate ?? "",
+        description: joinLines(volunteer.description),
+      })) ?? [],
+    languages:
+      resume.languages?.map((lang) => ({
+        language: lang.language ?? "",
+        proficiency: lang.proficiency ?? "",
+      })) ?? [],
+    additionalSections:
+      resume.additionalSections?.map((section) => ({
+        title: section.title ?? "",
+        content: joinLines(section.content),
+      })) ?? [],
+  };
+}
+
+export function EditMasterResumeForm() {
   const { user } = useAuth();
   const [isLoading, setIsLoading] = useState(false);
+  const [hasPrefilled, setHasPrefilled] = useState(false);
   const [form, setForm] = useState<FormState>({
     ...initialState,
     email: user?.email ?? "",
@@ -282,6 +409,38 @@ export function CreateMasterResumeForm() {
       fullName: prev.fullName || user.fullName || "",
     }));
   }, [user]);
+
+  useEffect(() => {
+    if (hasPrefilled) {
+      return;
+    }
+
+    let isActive = true;
+
+    const load = async () => {
+      try {
+        const response: MasterResumeViewResponse =
+          await masterResumeApi.view();
+        const resume = response?.resumeJson;
+        if (!resume || !isActive) {
+          return;
+        }
+
+        setForm(() =>
+          buildFormFromResume(resume, user?.email, user?.fullName)
+        );
+        setHasPrefilled(true);
+      } catch {
+        // No existing resume or failed request; keep defaults.
+      }
+    };
+
+    load();
+
+    return () => {
+      isActive = false;
+    };
+  }, [hasPrefilled, user]);
 
   const canSubmit = useMemo(() => {
     return form.fullName.trim().length > 0;
@@ -660,8 +819,8 @@ export function CreateMasterResumeForm() {
     setIsLoading(true);
     try {
       const payload = buildPayload();
-      const response = await masterResumeApi.create(payload);
-      toast.success(response.message || "Master resume created successfully.");
+      const response = await masterResumeApi.edit(payload);
+      toast.success(response.message || "Master resume edited successfully.");
       setForm((prev) => ({
         ...initialState,
         email: user?.email ?? "",
@@ -669,24 +828,16 @@ export function CreateMasterResumeForm() {
       }));
     } catch (error) {
       const apiError = error as ApiError;
-      toast.error(apiError.message || "Failed to create master resume.");
+      toast.error(apiError.message || "Failed to edit master resume.");
     } finally {
       setIsLoading(false);
     }
   };
 
   return (
-    <Card
-      className="
-    relative
-    border border-border/50
-    bg-card/70
-    backdrop-blur-xl
-    shadow-[0_20px_60px_-20px_rgba(0,0,0,0.35)]
-  "
-    >
+    <Card>
       <CardHeader>
-        <CardTitle>Create Master Resume</CardTitle>
+        <CardTitle>Edit Master Resume</CardTitle>
         <CardDescription>
           Fill in your baseline profile once. All fields from the backend DTO are
           supported below.
@@ -694,16 +845,17 @@ export function CreateMasterResumeForm() {
       </CardHeader>
       <CardContent>
         <form onSubmit={handleSubmit} className="space-y-6">
-          <div className="grid gap-5 sm:grid-cols-1 md:grid-cols-2">            <div className="space-y-2">
-            <Label htmlFor="fullName">Full name</Label>
-            <Input
-              id="fullName"
-              value={form.fullName}
-              onChange={(event) => onChange("fullName", event.target.value)}
-              placeholder="John Doe"
-              required
-            />
-          </div>
+          <div className="grid gap-4 md:grid-cols-2">
+            <div className="space-y-2">
+              <Label htmlFor="fullName">Full name</Label>
+              <Input
+                id="fullName"
+                value={form.fullName}
+                onChange={(event) => onChange("fullName", event.target.value)}
+                placeholder="John Doe"
+                required
+              />
+            </div>
             <div className="space-y-2">
               <Label htmlFor="headline">Headline</Label>
               <Input
@@ -752,15 +904,16 @@ export function CreateMasterResumeForm() {
             </div>
           </div>
 
-          <div className="grid gap-5 sm:grid-cols-1 md:grid-cols-2">            <div className="space-y-2">
-            <Label htmlFor="linkedin">LinkedIn</Label>
-            <Input
-              id="linkedin"
-              value={form.linkedin}
-              onChange={(event) => onChange("linkedin", event.target.value)}
-              placeholder="https://linkedin.com/in/username"
-            />
-          </div>
+          <div className="grid gap-4 md:grid-cols-2">
+            <div className="space-y-2">
+              <Label htmlFor="linkedin">LinkedIn</Label>
+              <Input
+                id="linkedin"
+                value={form.linkedin}
+                onChange={(event) => onChange("linkedin", event.target.value)}
+                placeholder="https://linkedin.com/in/username"
+              />
+            </div>
             <div className="space-y-2">
               <Label htmlFor="github">GitHub</Label>
               <Input
@@ -810,20 +963,21 @@ export function CreateMasterResumeForm() {
             />
           </div>
 
-          <div className="grid gap-5 sm:grid-cols-1 md:grid-cols-2">            <div className="space-y-2">
-            <Label htmlFor="technicalSkills">
-              Technical skills (comma separated)
-            </Label>
-            <Textarea
-              id="technicalSkills"
-              value={form.technicalSkills}
-              onChange={(event) =>
-                onChange("technicalSkills", event.target.value)
-              }
-              placeholder="Java, Spring Boot, PostgreSQL"
-              rows={3}
-            />
-          </div>
+          <div className="grid gap-4 md:grid-cols-2">
+            <div className="space-y-2">
+              <Label htmlFor="technicalSkills">
+                Technical skills (comma separated)
+              </Label>
+              <Textarea
+                id="technicalSkills"
+                value={form.technicalSkills}
+                onChange={(event) =>
+                  onChange("technicalSkills", event.target.value)
+                }
+                placeholder="Java, Spring Boot, PostgreSQL"
+                rows={3}
+              />
+            </div>
             <div className="space-y-2">
               <Label htmlFor="professionalSkills">
                 Professional skills (comma separated)
@@ -885,33 +1039,10 @@ export function CreateMasterResumeForm() {
             />
           </div>
 
-          <div
-            className="
-    relative my-10 h-px w-full
-    bg-gradient-to-r
-    from-transparent
-    via-border/70
-    to-transparent
-  "
-          />
           <section className="space-y-4">
-            <div className="flex flex-wrap items-center justify-between gap-4">
-              <h3 className="text-sm font-semibold tracking-wide text-foreground">Experience</h3>
-              <Button
-                type="button"
-                size="sm"
-                variant="outline"
-                className="
-    rounded-full
-    px-4
-    backdrop-blur-md
-    bg-background/60
-    border-border/60
-    hover:bg-primary/10
-    hover:border-primary/30
-    transition-all
-  "
-                onClick={addExperience}>
+            <div className="flex items-center justify-between">
+              <h3 className="text-sm font-medium">Experience</h3>
+              <Button type="button" variant="outline" size="sm" onClick={addExperience}>
                 <Plus className="mr-2 size-4" />
                 Add experience
               </Button>
@@ -923,29 +1054,13 @@ export function CreateMasterResumeForm() {
               </p>
             ) : (
               form.experience.map((exp, index) => (
-                <div key={`exp-${index}`} className="group
-    relative
-    rounded-2xl
-    border border-border/60
-    bg-background/60
-    backdrop-blur-md
-    p-6
-    space-y-5
-    transition-all duration-200
-    hover:border-primary/20">
-                  <div className="flex flex-wrap items-center justify-between gap-4">
-                    <h4 className="text-sm font-semibold tracking-wide text-foreground">Experience {index + 1}</h4>
+                <div key={`exp-${index}`} className="rounded-md border p-4 space-y-4">
+                  <div className="flex items-center justify-between">
+                    <h4 className="text-sm font-medium">Experience {index + 1}</h4>
                     <Button
                       type="button"
                       variant="ghost"
                       size="sm"
-                      className="
-  bg-background/70
-  backdrop-blur-sm
-  focus-visible:ring-2
-  focus-visible:ring-primary/40
-  transition-shadow
-"
                       onClick={() => removeExperience(index)}
                     >
                       <Trash2 className="mr-2 size-4" />
@@ -953,15 +1068,16 @@ export function CreateMasterResumeForm() {
                     </Button>
                   </div>
 
-                  <div className="grid gap-5 sm:grid-cols-1 md:grid-cols-2">                    <div className="space-y-2">
-                    <Label>Role</Label>
-                    <Input
-                      value={exp.role}
-                      onChange={(event) =>
-                        updateExperience(index, "role", event.target.value)
-                      }
-                    />
-                  </div>
+                  <div className="grid gap-4 md:grid-cols-2">
+                    <div className="space-y-2">
+                      <Label>Role</Label>
+                      <Input
+                        value={exp.role}
+                        onChange={(event) =>
+                          updateExperience(index, "role", event.target.value)
+                        }
+                      />
+                    </div>
                     <div className="space-y-2">
                       <Label>Organization</Label>
                       <Input
@@ -1031,20 +1147,21 @@ export function CreateMasterResumeForm() {
                     />
                   </div>
 
-                  <div className="grid gap-5 sm:grid-cols-1 md:grid-cols-2">                    <div className="space-y-2">
-                    <Label>Responsibilities (one per line)</Label>
-                    <Textarea
-                      value={exp.responsibilities}
-                      onChange={(event) =>
-                        updateExperience(
-                          index,
-                          "responsibilities",
-                          event.target.value,
-                        )
-                      }
-                      rows={3}
-                    />
-                  </div>
+                  <div className="grid gap-4 md:grid-cols-2">
+                    <div className="space-y-2">
+                      <Label>Responsibilities (one per line)</Label>
+                      <Textarea
+                        value={exp.responsibilities}
+                        onChange={(event) =>
+                          updateExperience(
+                            index,
+                            "responsibilities",
+                            event.target.value,
+                          )
+                        }
+                        rows={3}
+                      />
+                    </div>
                     <div className="space-y-2">
                       <Label>Achievements (one per line)</Label>
                       <Textarea
@@ -1075,33 +1192,10 @@ export function CreateMasterResumeForm() {
             )}
           </section>
 
-          <div
-            className="
-    relative my-10 h-px w-full
-    bg-gradient-to-r
-    from-transparent
-    via-border/70
-    to-transparent
-  "
-          />
           <section className="space-y-4">
-            <div className="flex flex-wrap items-center justify-between gap-4">
-              <h3 className="text-sm font-semibold tracking-wide text-foreground">Projects or Work</h3>
-              <Button
-                type="button"
-                size="sm"
-                variant="outline"
-                className="
-    rounded-full
-    px-4
-    backdrop-blur-md
-    bg-background/60
-    border-border/60
-    hover:bg-primary/10
-    hover:border-primary/30
-    transition-all
-  "
-                onClick={addProject}>
+            <div className="flex items-center justify-between">
+              <h3 className="text-sm font-medium">Projects or Work</h3>
+              <Button type="button" variant="outline" size="sm" onClick={addProject}>
                 <Plus className="mr-2 size-4" />
                 Add project
               </Button>
@@ -1113,29 +1207,13 @@ export function CreateMasterResumeForm() {
               </p>
             ) : (
               form.projectsOrWork.map((project, index) => (
-                <div key={`project-${index}`} className="group
-    relative
-    rounded-2xl
-    border border-border/60
-    bg-background/60
-    backdrop-blur-md
-    p-6
-    space-y-5
-    transition-all duration-200
-    hover:border-primary/20">
-                  <div className="flex flex-wrap items-center justify-between gap-4">
-                    <h4 className="text-sm font-semibold tracking-wide text-foreground">Project {index + 1}</h4>
+                <div key={`project-${index}`} className="rounded-md border p-4 space-y-4">
+                  <div className="flex items-center justify-between">
+                    <h4 className="text-sm font-medium">Project {index + 1}</h4>
                     <Button
                       type="button"
                       variant="ghost"
                       size="sm"
-                      className="
-  bg-background/70
-  backdrop-blur-sm
-  focus-visible:ring-2
-  focus-visible:ring-primary/40
-  transition-shadow
-"
                       onClick={() => removeProject(index)}
                     >
                       <Trash2 className="mr-2 size-4" />
@@ -1143,15 +1221,16 @@ export function CreateMasterResumeForm() {
                     </Button>
                   </div>
 
-                  <div className="grid gap-5 sm:grid-cols-1 md:grid-cols-2">                    <div className="space-y-2">
-                    <Label>Title</Label>
-                    <Input
-                      value={project.title}
-                      onChange={(event) =>
-                        updateProject(index, "title", event.target.value)
-                      }
-                    />
-                  </div>
+                  <div className="grid gap-4 md:grid-cols-2">
+                    <div className="space-y-2">
+                      <Label>Title</Label>
+                      <Input
+                        value={project.title}
+                        onChange={(event) =>
+                          updateProject(index, "title", event.target.value)
+                        }
+                      />
+                    </div>
                     <div className="space-y-2">
                       <Label>Type</Label>
                       <Input
@@ -1173,16 +1252,17 @@ export function CreateMasterResumeForm() {
                     </div>
                   </div>
 
-                  <div className="grid gap-5 sm:grid-cols-1 md:grid-cols-2">                    <div className="space-y-2">
-                    <Label>Description (one per line)</Label>
-                    <Textarea
-                      value={project.description}
-                      onChange={(event) =>
-                        updateProject(index, "description", event.target.value)
-                      }
-                      rows={3}
-                    />
-                  </div>
+                  <div className="grid gap-4 md:grid-cols-2">
+                    <div className="space-y-2">
+                      <Label>Description (one per line)</Label>
+                      <Textarea
+                        value={project.description}
+                        onChange={(event) =>
+                          updateProject(index, "description", event.target.value)
+                        }
+                        rows={3}
+                      />
+                    </div>
                     <div className="space-y-2">
                       <Label>Outcomes (one per line)</Label>
                       <Textarea
@@ -1209,33 +1289,10 @@ export function CreateMasterResumeForm() {
             )}
           </section>
 
-          <div
-            className="
-    relative my-10 h-px w-full
-    bg-gradient-to-r
-    from-transparent
-    via-border/70
-    to-transparent
-  "
-          />
           <section className="space-y-4">
-            <div className="flex flex-wrap items-center justify-between gap-4">
-              <h3 className="text-sm font-semibold tracking-wide text-foreground">Education</h3>
-              <Button
-                type="button"
-                size="sm"
-                variant="outline"
-                className="
-    rounded-full
-    px-4
-    backdrop-blur-md
-    bg-background/60
-    border-border/60
-    hover:bg-primary/10
-    hover:border-primary/30
-    transition-all
-  "
-                onClick={addEducation}>
+            <div className="flex items-center justify-between">
+              <h3 className="text-sm font-medium">Education</h3>
+              <Button type="button" variant="outline" size="sm" onClick={addEducation}>
                 <Plus className="mr-2 size-4" />
                 Add education
               </Button>
@@ -1245,29 +1302,13 @@ export function CreateMasterResumeForm() {
               <p className="text-sm text-muted-foreground">No education yet.</p>
             ) : (
               form.education.map((edu, index) => (
-                <div key={`edu-${index}`} className="group
-    relative
-    rounded-2xl
-    border border-border/60
-    bg-background/60
-    backdrop-blur-md
-    p-6
-    space-y-5
-    transition-all duration-200
-    hover:border-primary/20">
-                  <div className="flex flex-wrap items-center justify-between gap-4">
-                    <h4 className="text-sm font-semibold tracking-wide text-foreground">Education {index + 1}</h4>
+                <div key={`edu-${index}`} className="rounded-md border p-4 space-y-4">
+                  <div className="flex items-center justify-between">
+                    <h4 className="text-sm font-medium">Education {index + 1}</h4>
                     <Button
                       type="button"
                       variant="ghost"
                       size="sm"
-                      className="
-  bg-background/70
-  backdrop-blur-sm
-  focus-visible:ring-2
-  focus-visible:ring-primary/40
-  transition-shadow
-"
                       onClick={() => removeEducation(index)}
                     >
                       <Trash2 className="mr-2 size-4" />
@@ -1275,15 +1316,16 @@ export function CreateMasterResumeForm() {
                     </Button>
                   </div>
 
-                  <div className="grid gap-5 sm:grid-cols-1 md:grid-cols-2">                    <div className="space-y-2">
-                    <Label>Degree</Label>
-                    <Input
-                      value={edu.degree}
-                      onChange={(event) =>
-                        updateEducation(index, "degree", event.target.value)
-                      }
-                    />
-                  </div>
+                  <div className="grid gap-4 md:grid-cols-2">
+                    <div className="space-y-2">
+                      <Label>Degree</Label>
+                      <Input
+                        value={edu.degree}
+                        onChange={(event) =>
+                          updateEducation(index, "degree", event.target.value)
+                        }
+                      />
+                    </div>
                     <div className="space-y-2">
                       <Label>Field of study</Label>
                       <Input
@@ -1331,19 +1373,20 @@ export function CreateMasterResumeForm() {
                     </div>
                   </div>
 
-                  <div className="grid gap-5 sm:grid-cols-1 md:grid-cols-2">                    <div className="space-y-2">
-                    <Label>Grade or score</Label>
-                    <Input
-                      value={edu.gradeOrScore}
-                      onChange={(event) =>
-                        updateEducation(
-                          index,
-                          "gradeOrScore",
-                          event.target.value,
-                        )
-                      }
-                    />
-                  </div>
+                  <div className="grid gap-4 md:grid-cols-2">
+                    <div className="space-y-2">
+                      <Label>Grade or score</Label>
+                      <Input
+                        value={edu.gradeOrScore}
+                        onChange={(event) =>
+                          updateEducation(
+                            index,
+                            "gradeOrScore",
+                            event.target.value,
+                          )
+                        }
+                      />
+                    </div>
                     <div className="space-y-2">
                       <Label>Focus areas</Label>
                       <Textarea
@@ -1360,33 +1403,10 @@ export function CreateMasterResumeForm() {
             )}
           </section>
 
-          <div
-            className="
-    relative my-10 h-px w-full
-    bg-gradient-to-r
-    from-transparent
-    via-border/70
-    to-transparent
-  "
-          />
           <section className="space-y-4">
-            <div className="flex flex-wrap items-center justify-between gap-4">
-              <h3 className="text-sm font-semibold tracking-wide text-foreground">Certifications</h3>
-              <Button
-                type="button"
-                size="sm"
-                variant="outline"
-                className="
-    rounded-full
-    px-4
-    backdrop-blur-md
-    bg-background/60
-    border-border/60
-    hover:bg-primary/10
-    hover:border-primary/30
-    transition-all
-  "
-                onClick={addCertification}>
+            <div className="flex items-center justify-between">
+              <h3 className="text-sm font-medium">Certifications</h3>
+              <Button type="button" variant="outline" size="sm" onClick={addCertification}>
                 <Plus className="mr-2 size-4" />
                 Add certification
               </Button>
@@ -1398,29 +1418,13 @@ export function CreateMasterResumeForm() {
               </p>
             ) : (
               form.certifications.map((cert, index) => (
-                <div key={`cert-${index}`} className="group
-    relative
-    rounded-2xl
-    border border-border/60
-    bg-background/60
-    backdrop-blur-md
-    p-6
-    space-y-5
-    transition-all duration-200
-    hover:border-primary/20">
-                  <div className="flex flex-wrap items-center justify-between gap-4">
-                    <h4 className="text-sm font-semibold tracking-wide text-foreground">Certification {index + 1}</h4>
+                <div key={`cert-${index}`} className="rounded-md border p-4 space-y-4">
+                  <div className="flex items-center justify-between">
+                    <h4 className="text-sm font-medium">Certification {index + 1}</h4>
                     <Button
                       type="button"
                       variant="ghost"
                       size="sm"
-                      className="
-  bg-background/70
-  backdrop-blur-sm
-  focus-visible:ring-2
-  focus-visible:ring-primary/40
-  transition-shadow
-"
                       onClick={() => removeCertification(index)}
                     >
                       <Trash2 className="mr-2 size-4" />
@@ -1428,15 +1432,16 @@ export function CreateMasterResumeForm() {
                     </Button>
                   </div>
 
-                  <div className="grid gap-5 sm:grid-cols-1 md:grid-cols-2">                    <div className="space-y-2">
-                    <Label>Name</Label>
-                    <Input
-                      value={cert.name}
-                      onChange={(event) =>
-                        updateCertification(index, "name", event.target.value)
-                      }
-                    />
-                  </div>
+                  <div className="grid gap-4 md:grid-cols-2">
+                    <div className="space-y-2">
+                      <Label>Name</Label>
+                      <Input
+                        value={cert.name}
+                        onChange={(event) =>
+                          updateCertification(index, "name", event.target.value)
+                        }
+                      />
+                    </div>
                     <div className="space-y-2">
                       <Label>Issuer</Label>
                       <Input
@@ -1489,33 +1494,10 @@ export function CreateMasterResumeForm() {
             )}
           </section>
 
-          <div
-            className="
-    relative my-10 h-px w-full
-    bg-gradient-to-r
-    from-transparent
-    via-border/70
-    to-transparent
-  "
-          />
           <section className="space-y-4">
-            <div className="flex flex-wrap items-center justify-between gap-4">
-              <h3 className="text-sm font-semibold tracking-wide text-foreground">Awards and honors</h3>
-              <Button
-                type="button"
-                size="sm"
-                variant="outline"
-                className="
-    rounded-full
-    px-4
-    backdrop-blur-md
-    bg-background/60
-    border-border/60
-    hover:bg-primary/10
-    hover:border-primary/30
-    transition-all
-  "
-                onClick={addAward}>
+            <div className="flex items-center justify-between">
+              <h3 className="text-sm font-medium">Awards and honors</h3>
+              <Button type="button" variant="outline" size="sm" onClick={addAward}>
                 <Plus className="mr-2 size-4" />
                 Add award
               </Button>
@@ -1525,29 +1507,13 @@ export function CreateMasterResumeForm() {
               <p className="text-sm text-muted-foreground">No awards yet.</p>
             ) : (
               form.awardsAndHonors.map((award, index) => (
-                <div key={`award-${index}`} className="group
-    relative
-    rounded-2xl
-    border border-border/60
-    bg-background/60
-    backdrop-blur-md
-    p-6
-    space-y-5
-    transition-all duration-200
-    hover:border-primary/20">
-                  <div className="flex flex-wrap items-center justify-between gap-4">
-                    <h4 className="text-sm font-semibold tracking-wide text-foreground">Award {index + 1}</h4>
+                <div key={`award-${index}`} className="rounded-md border p-4 space-y-4">
+                  <div className="flex items-center justify-between">
+                    <h4 className="text-sm font-medium">Award {index + 1}</h4>
                     <Button
                       type="button"
                       variant="ghost"
                       size="sm"
-                      className="
-  bg-background/70
-  backdrop-blur-sm
-  focus-visible:ring-2
-  focus-visible:ring-primary/40
-  transition-shadow
-"
                       onClick={() => removeAward(index)}
                     >
                       <Trash2 className="mr-2 size-4" />
@@ -1555,15 +1521,16 @@ export function CreateMasterResumeForm() {
                     </Button>
                   </div>
 
-                  <div className="grid gap-5 sm:grid-cols-1 md:grid-cols-2">                    <div className="space-y-2">
-                    <Label>Title</Label>
-                    <Input
-                      value={award.title}
-                      onChange={(event) =>
-                        updateAward(index, "title", event.target.value)
-                      }
-                    />
-                  </div>
+                  <div className="grid gap-4 md:grid-cols-2">
+                    <div className="space-y-2">
+                      <Label>Title</Label>
+                      <Input
+                        value={award.title}
+                        onChange={(event) =>
+                          updateAward(index, "title", event.target.value)
+                        }
+                      />
+                    </div>
                     <div className="space-y-2">
                       <Label>Issuer</Label>
                       <Input
@@ -1599,33 +1566,10 @@ export function CreateMasterResumeForm() {
             )}
           </section>
 
-          <div
-            className="
-    relative my-10 h-px w-full
-    bg-gradient-to-r
-    from-transparent
-    via-border/70
-    to-transparent
-  "
-          />
           <section className="space-y-4">
-            <div className="flex flex-wrap items-center justify-between gap-4">
-              <h3 className="text-sm font-semibold tracking-wide text-foreground">Publications</h3>
-              <Button
-                type="button"
-                size="sm"
-                variant="outline"
-                className="
-    rounded-full
-    px-4
-    backdrop-blur-md
-    bg-background/60
-    border-border/60
-    hover:bg-primary/10
-    hover:border-primary/30
-    transition-all
-  "
-                onClick={addPublication}>
+            <div className="flex items-center justify-between">
+              <h3 className="text-sm font-medium">Publications</h3>
+              <Button type="button" variant="outline" size="sm" onClick={addPublication}>
                 <Plus className="mr-2 size-4" />
                 Add publication
               </Button>
@@ -1635,29 +1579,13 @@ export function CreateMasterResumeForm() {
               <p className="text-sm text-muted-foreground">No publications yet.</p>
             ) : (
               form.publications.map((publication, index) => (
-                <div key={`publication-${index}`} className="group
-    relative
-    rounded-2xl
-    border border-border/60
-    bg-background/60
-    backdrop-blur-md
-    p-6
-    space-y-5
-    transition-all duration-200
-    hover:border-primary/20">
-                  <div className="flex flex-wrap items-center justify-between gap-4">
-                    <h4 className="text-sm font-semibold tracking-wide text-foreground">Publication {index + 1}</h4>
+                <div key={`publication-${index}`} className="rounded-md border p-4 space-y-4">
+                  <div className="flex items-center justify-between">
+                    <h4 className="text-sm font-medium">Publication {index + 1}</h4>
                     <Button
                       type="button"
                       variant="ghost"
                       size="sm"
-                      className="
-  bg-background/70
-  backdrop-blur-sm
-  focus-visible:ring-2
-  focus-visible:ring-primary/40
-  transition-shadow
-"
                       onClick={() => removePublication(index)}
                     >
                       <Trash2 className="mr-2 size-4" />
@@ -1665,15 +1593,16 @@ export function CreateMasterResumeForm() {
                     </Button>
                   </div>
 
-                  <div className="grid gap-5 sm:grid-cols-1 md:grid-cols-2">                    <div className="space-y-2">
-                    <Label>Title</Label>
-                    <Input
-                      value={publication.title}
-                      onChange={(event) =>
-                        updatePublication(index, "title", event.target.value)
-                      }
-                    />
-                  </div>
+                  <div className="grid gap-4 md:grid-cols-2">
+                    <div className="space-y-2">
+                      <Label>Title</Label>
+                      <Input
+                        value={publication.title}
+                        onChange={(event) =>
+                          updatePublication(index, "title", event.target.value)
+                        }
+                      />
+                    </div>
                     <div className="space-y-2">
                       <Label>Publisher</Label>
                       <Input
@@ -1712,33 +1641,10 @@ export function CreateMasterResumeForm() {
             )}
           </section>
 
-          <div
-            className="
-    relative my-10 h-px w-full
-    bg-gradient-to-r
-    from-transparent
-    via-border/70
-    to-transparent
-  "
-          />
           <section className="space-y-4">
-            <div className="flex flex-wrap items-center justify-between gap-4">
-              <h3 className="text-sm font-semibold tracking-wide text-foreground">Volunteer experience</h3>
-              <Button
-                type="button"
-                size="sm"
-                variant="outline"
-                className="
-    rounded-full
-    px-4
-    backdrop-blur-md
-    bg-background/60
-    border-border/60
-    hover:bg-primary/10
-    hover:border-primary/30
-    transition-all
-  "
-                onClick={addVolunteer}>
+            <div className="flex items-center justify-between">
+              <h3 className="text-sm font-medium">Volunteer experience</h3>
+              <Button type="button" variant="outline" size="sm" onClick={addVolunteer}>
                 <Plus className="mr-2 size-4" />
                 Add volunteer
               </Button>
@@ -1750,29 +1656,13 @@ export function CreateMasterResumeForm() {
               </p>
             ) : (
               form.volunteerExperience.map((volunteer, index) => (
-                <div key={`volunteer-${index}`} className="group
-    relative
-    rounded-2xl
-    border border-border/60
-    bg-background/60
-    backdrop-blur-md
-    p-6
-    space-y-5
-    transition-all duration-200
-    hover:border-primary/20">
-                  <div className="flex flex-wrap items-center justify-between gap-4">
-                    <h4 className="text-sm font-semibold tracking-wide text-foreground">Volunteer {index + 1}</h4>
+                <div key={`volunteer-${index}`} className="rounded-md border p-4 space-y-4">
+                  <div className="flex items-center justify-between">
+                    <h4 className="text-sm font-medium">Volunteer {index + 1}</h4>
                     <Button
                       type="button"
                       variant="ghost"
                       size="sm"
-                      className="
-  bg-background/70
-  backdrop-blur-sm
-  focus-visible:ring-2
-  focus-visible:ring-primary/40
-  transition-shadow
-"
                       onClick={() => removeVolunteer(index)}
                     >
                       <Trash2 className="mr-2 size-4" />
@@ -1780,15 +1670,16 @@ export function CreateMasterResumeForm() {
                     </Button>
                   </div>
 
-                  <div className="grid gap-5 sm:grid-cols-1 md:grid-cols-2">                    <div className="space-y-2">
-                    <Label>Role</Label>
-                    <Input
-                      value={volunteer.role}
-                      onChange={(event) =>
-                        updateVolunteer(index, "role", event.target.value)
-                      }
-                    />
-                  </div>
+                  <div className="grid gap-4 md:grid-cols-2">
+                    <div className="space-y-2">
+                      <Label>Role</Label>
+                      <Input
+                        value={volunteer.role}
+                        onChange={(event) =>
+                          updateVolunteer(index, "role", event.target.value)
+                        }
+                      />
+                    </div>
                     <div className="space-y-2">
                       <Label>Organization</Label>
                       <Input
@@ -1848,33 +1739,10 @@ export function CreateMasterResumeForm() {
             )}
           </section>
 
-          <div
-            className="
-    relative my-10 h-px w-full
-    bg-gradient-to-r
-    from-transparent
-    via-border/70
-    to-transparent
-  "
-          />
           <section className="space-y-4">
-            <div className="flex flex-wrap items-center justify-between gap-4">
-              <h3 className="text-sm font-semibold tracking-wide text-foreground">Languages</h3>
-              <Button
-                type="button"
-                size="sm"
-                variant="outline"
-                className="
-    rounded-full
-    px-4
-    backdrop-blur-md
-    bg-background/60
-    border-border/60
-    hover:bg-primary/10
-    hover:border-primary/30
-    transition-all
-  "
-                onClick={addLanguage}>
+            <div className="flex items-center justify-between">
+              <h3 className="text-sm font-medium">Languages</h3>
+              <Button type="button" variant="outline" size="sm" onClick={addLanguage}>
                 <Plus className="mr-2 size-4" />
                 Add language
               </Button>
@@ -1884,29 +1752,13 @@ export function CreateMasterResumeForm() {
               <p className="text-sm text-muted-foreground">No languages yet.</p>
             ) : (
               form.languages.map((lang, index) => (
-                <div key={`language-${index}`} className="group
-    relative
-    rounded-2xl
-    border border-border/60
-    bg-background/60
-    backdrop-blur-md
-    p-6
-    space-y-5
-    transition-all duration-200
-    hover:border-primary/20">
-                  <div className="flex flex-wrap items-center justify-between gap-4">
-                    <h4 className="text-sm font-semibold tracking-wide text-foreground">Language {index + 1}</h4>
+                <div key={`language-${index}`} className="rounded-md border p-4 space-y-4">
+                  <div className="flex items-center justify-between">
+                    <h4 className="text-sm font-medium">Language {index + 1}</h4>
                     <Button
                       type="button"
                       variant="ghost"
                       size="sm"
-                      className="
-  bg-background/70
-  backdrop-blur-sm
-  focus-visible:ring-2
-  focus-visible:ring-primary/40
-  transition-shadow
-"
                       onClick={() => removeLanguage(index)}
                     >
                       <Trash2 className="mr-2 size-4" />
@@ -1914,15 +1766,16 @@ export function CreateMasterResumeForm() {
                     </Button>
                   </div>
 
-                  <div className="grid gap-5 sm:grid-cols-1 md:grid-cols-2">                    <div className="space-y-2">
-                    <Label>Language</Label>
-                    <Input
-                      value={lang.language}
-                      onChange={(event) =>
-                        updateLanguage(index, "language", event.target.value)
-                      }
-                    />
-                  </div>
+                  <div className="grid gap-4 md:grid-cols-2">
+                    <div className="space-y-2">
+                      <Label>Language</Label>
+                      <Input
+                        value={lang.language}
+                        onChange={(event) =>
+                          updateLanguage(index, "language", event.target.value)
+                        }
+                      />
+                    </div>
                     <div className="space-y-2">
                       <Label>Proficiency</Label>
                       <Input
@@ -1939,33 +1792,10 @@ export function CreateMasterResumeForm() {
             )}
           </section>
 
-          <div
-            className="
-    relative my-10 h-px w-full
-    bg-gradient-to-r
-    from-transparent
-    via-border/70
-    to-transparent
-  "
-          />
           <section className="space-y-4">
-            <div className="flex flex-wrap items-center justify-between gap-4">
-              <h3 className="text-sm font-semibold tracking-wide text-foreground">Additional sections</h3>
-              <Button
-                type="button"
-                size="sm"
-                variant="outline"
-                className="
-    rounded-full
-    px-4
-    backdrop-blur-md
-    bg-background/60
-    border-border/60
-    hover:bg-primary/10
-    hover:border-primary/30
-    transition-all
-  "
-                onClick={addAdditionalSection}>
+            <div className="flex items-center justify-between">
+              <h3 className="text-sm font-medium">Additional sections</h3>
+              <Button type="button" variant="outline" size="sm" onClick={addAdditionalSection}>
                 <Plus className="mr-2 size-4" />
                 Add section
               </Button>
@@ -1977,29 +1807,13 @@ export function CreateMasterResumeForm() {
               </p>
             ) : (
               form.additionalSections.map((section, index) => (
-                <div key={`additional-${index}`} className="group
-    relative
-    rounded-2xl
-    border border-border/60
-    bg-background/60
-    backdrop-blur-md
-    p-6
-    space-y-5
-    transition-all duration-200
-    hover:border-primary/20">
-                  <div className="flex flex-wrap items-center justify-between gap-4">
-                    <h4 className="text-sm font-semibold tracking-wide text-foreground">Section {index + 1}</h4>
+                <div key={`additional-${index}`} className="rounded-md border p-4 space-y-4">
+                  <div className="flex items-center justify-between">
+                    <h4 className="text-sm font-medium">Section {index + 1}</h4>
                     <Button
                       type="button"
                       variant="ghost"
                       size="sm"
-                      className="
-  bg-background/70
-  backdrop-blur-sm
-  focus-visible:ring-2
-  focus-visible:ring-primary/40
-  transition-shadow
-"
                       onClick={() => removeAdditionalSection(index)}
                     >
                       <Trash2 className="mr-2 size-4" />
@@ -2035,32 +1849,14 @@ export function CreateMasterResumeForm() {
             )}
           </section>
 
-          <Button
-            type="submit"
-            disabled={isLoading || !canSubmit}
-            className="
-    h-11
-    rounded-full
-    px-8
-    gap-2
-    bg-primary/90
-    text-primary-foreground
-    shadow-[0_12px_30px_-10px_rgba(0,0,0,0.35)]
-    transition-all
-    hover:bg-primary
-    active:scale-[0.98]
-  "
-          >
+          <Button type="submit" disabled={isLoading || !canSubmit}>
             {isLoading ? (
               <>
-                <Loader2 className="size-4 animate-spin" />
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                 Creating...
               </>
             ) : (
-              <>
-                <Plus className="size-4" />
-                Create Master Resume
-              </>
+              "Edit Master Resume"
             )}
           </Button>
         </form>

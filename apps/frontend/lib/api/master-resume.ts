@@ -24,7 +24,7 @@ export const masterResumeApi = {
     );
   },
 
-  update: async (
+  edit: async (
     data: CreateAndUpdateMasterResumeRequest,
   ): Promise<MasterResumeCommonResponse> => {
     return apiClient.put<MasterResumeCommonResponse>('/api/master-resume/update', data);

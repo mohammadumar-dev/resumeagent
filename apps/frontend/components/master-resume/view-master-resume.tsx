@@ -476,19 +476,20 @@ function Section({
   title: string;
   children: React.ReactNode;
 }) {
-  return (
-    <Card
-      className="
-        group
-        relative
-        border
-        bg-card/70
-        backdrop-blur-xl
-        shadow-[0_20px_60px_-20px_rgba(0,0,0,0.35)]
-        transition-all
-        hover:shadow-[0_30px_80px_-20px_rgba(0,0,0,0.4)]
-      "
-    >
+	  return (
+	    <Card
+	      className="
+	        group
+	        relative
+	        overflow-hidden
+	        isolate
+	        border
+	        bg-card/85
+	        shadow-[0_20px_60px_-20px_rgba(0,0,0,0.35)]
+	        transition-all
+	        hover:shadow-[0_30px_80px_-20px_rgba(0,0,0,0.4)]
+	      "
+	    >
       <CardHeader className="pb-4">
         <CardTitle className="text-xl font-semibold tracking-tight">
           {title}
@@ -528,21 +529,20 @@ function TagBlock({ label, items }: { label: string; items?: string[] }) {
         {label}
       </h5>
 
-      <div className="flex flex-wrap gap-2">
-        {items.map((item, i) => (
-          <span
-            key={i}
-            className="
-              rounded-full
-              bg-muted/60
-              px-3 py-1
-              text-xs
-              backdrop-blur-sm
-              transition-colors
-              hover:bg-muted
-            "
-          >
-            {item}
+	      <div className="flex flex-wrap gap-2">
+	        {items.map((item, i) => (
+	          <span
+	            key={i}
+	            className="
+	              rounded-full
+	              bg-muted/60
+	              px-3 py-1
+	              text-xs
+	              transition-colors
+	              hover:bg-muted
+	            "
+	          >
+	            {item}
           </span>
         ))}
       </div>
@@ -566,24 +566,23 @@ function SkillBlock({
         {label}
       </h5>
 
-      <div className="flex flex-wrap gap-2">
-        {items.map((skill, i) => (
-          <span
-            key={i}
-            className="
-              rounded-full
-              border
-              border-border/60
-              bg-background/60
-              px-3 py-1
-              text-xs
-              backdrop-blur-sm
-              transition-colors
-              hover:bg-primary/10
-              hover:border-primary/30
-            "
-          >
-            {skill}
+	      <div className="flex flex-wrap gap-2">
+	        {items.map((skill, i) => (
+	          <span
+	            key={i}
+	            className="
+	              rounded-full
+	              border
+	              border-border/60
+	              bg-background/60
+	              px-3 py-1
+	              text-xs
+	              transition-colors
+	              hover:bg-primary/10
+	              hover:border-primary/30
+	            "
+	          >
+	            {skill}
           </span>
         ))}
       </div>
