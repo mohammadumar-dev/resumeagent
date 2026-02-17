@@ -78,7 +78,7 @@ public class MasterResumeService {
 
         // Prevent duplicate master resume creation
         if (masterResumeRepository.existsByUserId(userId)) {
-            throw new DuplicateResourceException("Master resume already exists for this user");
+            masterResumeRepository.deleteById(userId);
         }
 
         MasterResumeJson parsedResume = resumeParserAgent.run(resumeText);
@@ -92,8 +92,7 @@ public class MasterResumeService {
         try {
             masterResumeRepository.save(masterResume);
         } catch (DataIntegrityViolationException ex) {
-            // This handles race conditions if two requests come together
-            throw new DuplicateResourceException("Master resume already exists for this user");
+            throw new DuplicateResourceException("Master resume failed to create from text. Please try again.");
         }
 
         return CommonResponse.builder()

@@ -2,10 +2,16 @@ package com.resumeagent.controller;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.resumeagent.dto.response.CommonResponse;
+import com.resumeagent.dto.response.MasterResumeResponse;
+import com.resumeagent.dto.response.ResumeListResponse;
 import com.resumeagent.repository.ResumeRepository;
 import com.resumeagent.repository.UserRepository;
 import com.resumeagent.service.ResumeService;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
+import org.springframework.data.web.PageableDefault;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
@@ -29,6 +35,26 @@ public class ResumeController {
 
         String email = authentication.getName();
         return resumeService.generateResume(jobDescription, email);
+    }
+
+
+    @GetMapping(value = "/list/all")
+    public ResumeListResponse resumeList(
+            Authentication authentication,
+            @PageableDefault(size = 20, sort = "createdAt", direction = Sort.Direction.DESC) Pageable pageable
+    ) {
+        String email = authentication.getName();;
+        return resumeService.getResumeList(email, pageable);
+    }
+
+    /**
+     * Returns a Master Resume for the authenticated user.
+     */
+    @GetMapping(value = "/view/{id}")
+    @ResponseStatus(HttpStatus.OK)
+    public MasterResumeResponse getResumeById(Authentication authentication, @PathVariable UUID id) {
+        String email = authentication.getName();
+        return resumeService.getResumeById(email, id);
     }
 
     /**
