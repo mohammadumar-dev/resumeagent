@@ -16,4 +16,6 @@ public interface MasterResumeRepository extends JpaRepository<MasterResume, UUID
     boolean existsByUserId(UUID userId);
 
     Optional<MasterResume> findByUser(User user);
+
+    Optional<MasterResume> findByUserAndActive(User user, boolean active);
 }

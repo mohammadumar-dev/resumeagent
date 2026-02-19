@@ -7,6 +7,7 @@ import com.resumeagent.ai.agents.JobDescriptionAnalyzerAgent;
 import com.resumeagent.ai.agents.MatchingAgent;
 import com.resumeagent.ai.agents.ResumeRewriteAgent;
 import com.resumeagent.ai.util.TokenCounter;
+import com.resumeagent.dto.request.CreateAndUpdateMasterResume;
 import com.resumeagent.dto.response.*;
 import com.resumeagent.entity.MasterResume;
 import com.resumeagent.entity.Resume;
@@ -17,6 +18,7 @@ import com.resumeagent.entity.enums.ResumeStatus;
 import com.resumeagent.entity.model.JobDescriptionAnalyzerJson;
 import com.resumeagent.entity.model.MasterResumeJson;
 import com.resumeagent.entity.model.MatchingAgentJson;
+import com.resumeagent.exception.DuplicateResourceException;
 import com.resumeagent.render.GreenResumeDocxService;
 import com.resumeagent.render.BlueResumeDocxService;
 import com.resumeagent.repository.MasterResumeRepository;
@@ -33,7 +35,10 @@ import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.TransactionDefinition;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionTemplate;
 
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
@@ -67,6 +72,7 @@ public class ResumeService {
 
     // WebSocket Messaging
     private final SimpMessagingTemplate messagingTemplate;
+    private final PlatformTransactionManager transactionManager;
 
     // Content type for DOCX files
     private static final String DOCX_CONTENT_TYPE = "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
@@ -290,7 +296,10 @@ public class ResumeService {
                 .tokensOutput(tokensOutput)
                 .build();
 
-        return agentLogRepository.save(agentLog);
+        TransactionTemplate transactionTemplate = new TransactionTemplate(transactionManager);
+        transactionTemplate.setPropagationBehavior(TransactionDefinition.PROPAGATION_REQUIRES_NEW);
+        ResumeAgentLog saved = transactionTemplate.execute(statusTx -> agentLogRepository.save(agentLog));
+        return saved == null ? agentLog : saved;
     }
 
     private int countTokensFromJson(Object value) throws JsonProcessingException {
@@ -430,5 +439,86 @@ public class ResumeService {
         return MasterResumeResponse.builder()
                 .resumeJson(resume.getResumeJson())
                 .build();
+    }
+
+    @Transactional
+    public CommonResponse updateResume(UUID id, CreateAndUpdateMasterResume request, String email) {
+
+        User user = userRepository.findByEmail(email)
+                .orElseThrow(() ->
+                        new IllegalStateException("Authenticated user not found"));
+
+        Resume resume = resumeRepository.findByIdAndUserId(id, user.getId())
+                .orElseThrow(() ->
+                        new IllegalStateException(
+                                "Resume does not exist. Create one before updating."));
+
+        // Convert DTO → JSON model
+        MasterResumeJson resumeJson = convertToModel(request);
+
+        // Update canonical JSON
+        resume.setResumeJson(resumeJson);
+        // updatedAt handled by @PreUpdate
+
+        try {
+            resumeRepository.save(resume);
+        } catch (DataIntegrityViolationException ex) {
+            // This handles race conditions if two requests come together
+            throw new DuplicateResourceException("Resume does not exist. Create one before updating.");
+        }
+
+        return CommonResponse.builder()
+                .message("Resume updated successfully")
+                .email(email)
+                .build();
+    }
+
+    @Transactional
+    public CommonResponse deleteResumeById(UUID id, String email) {
+        User user = userRepository.findByEmail(email)
+                .orElseThrow(() ->
+                        new IllegalStateException("Authenticated user not found"));
+
+        Resume resume = resumeRepository.findByIdAndUserId(id, user.getId())
+                .orElseThrow(() ->
+                        new IllegalStateException(
+                                "Resume does not exist."));
+
+        resume.setStatus(ResumeStatus.DELETED);
+
+        try {
+            resumeRepository.save(resume);
+        } catch (DataIntegrityViolationException ex) {
+            // This handles race conditions if two requests come together
+            throw new DuplicateResourceException("Resume does not exist");
+        }
+
+        return CommonResponse.builder()
+                .message("Resume deleted successfully")
+                .email(email)
+                .build();
+    }
+
+    /**
+     * Simple manual conversion method.
+     * This keeps the service clean and avoids tight coupling of DB model and API DTO.
+     */
+    private MasterResumeJson convertToModel(CreateAndUpdateMasterResume request) {
+
+        // Minimal safe mapping (you can expand field-by-field later)
+        // If your DTO == model exactly, you can also use ObjectMapper convertValue()
+        // but manual mapping is safest long-term for stability.
+
+        // For now, simplest conversion:
+        // (Assuming your DTO structure matches model structure perfectly)
+        // You can replace this with an ObjectMapper-based conversion later.
+
+        // Quick approach (recommended for speed):
+        // return objectMapper.convertValue(request, MasterResumeJson.class);
+
+        // Manual mapping placeholder:
+        // NOTE: To keep response short, we assign root fields directly only if needed.
+
+        return objectMapper.convertValue(request, MasterResumeJson.class);
     }
 }

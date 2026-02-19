@@ -5,10 +5,12 @@ import com.resumeagent.entity.User;
 import com.resumeagent.entity.enums.ResumeStatus;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
 
 import java.util.Collection;
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -24,4 +26,6 @@ public interface ResumeRepository extends JpaRepository<Resume, UUID> {
     Optional<Resume> findByIdAndUserId(UUID id, UUID userId);
 
     Page<Resume> findByUserAndStatusIn(User user, Collection<ResumeStatus> statuses, Pageable pageable);
+
+    List<Resume> findByUserAndStatusIn(User user, Collection<ResumeStatus> statuses, Sort sort);
 }
