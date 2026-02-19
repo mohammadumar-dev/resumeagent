@@ -1,20 +1,28 @@
 package com.resumeagent.service;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
 import com.resumeagent.ai.agents.ResumeParserAgent;
+import com.resumeagent.ai.util.TokenCounter;
 import com.resumeagent.dto.request.CreateAndUpdateMasterResume;
 import com.resumeagent.dto.response.CommonResponse;
 import com.resumeagent.dto.response.MasterResumeResponse;
 import com.resumeagent.entity.MasterResume;
+import com.resumeagent.entity.ResumeAgentLog;
 import com.resumeagent.entity.User;
+import com.resumeagent.entity.enums.AgentExecutionStatus;
 import com.resumeagent.entity.model.MasterResumeJson;
 import com.resumeagent.exception.DuplicateResourceException;
 import com.resumeagent.repository.MasterResumeRepository;
+import com.resumeagent.repository.ResumeAgentLogRepository;
 import com.resumeagent.repository.UserRepository;
 import org.springframework.transaction.annotation.Transactional;
 import lombok.RequiredArgsConstructor;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.TransactionDefinition;
+import org.springframework.transaction.support.TransactionTemplate;
 
 import java.util.UUID;
 
@@ -24,8 +32,10 @@ public class MasterResumeService {
 
     private final UserRepository userRepository;
     private final MasterResumeRepository masterResumeRepository;
+    private final ResumeAgentLogRepository agentLogRepository;
     private final ObjectMapper objectMapper;
     private final ResumeParserAgent resumeParserAgent;
+    private final PlatformTransactionManager transactionManager;
 
     /**
      * Creates a Master Resume for the authenticated user.
@@ -76,18 +86,48 @@ public class MasterResumeService {
 
         UUID userId = user.getId();
 
-        // Prevent duplicate master resume creation
-        if (masterResumeRepository.existsByUserId(userId)) {
-            masterResumeRepository.deleteById(userId);
+        MasterResume existingMasterResume = masterResumeRepository.findByUser(user).orElse(null);
+
+        int tokensInput = TokenCounter.countTokens(resumeText);
+        long start = System.nanoTime();
+        MasterResumeJson parsedResume;
+
+        try {
+            parsedResume = resumeParserAgent.run(resumeText);
+            int tokensOutput = countTokensFromJson(parsedResume);
+            saveAgentLog(
+                    "ResumeParserAgent",
+                    user,
+                    AgentExecutionStatus.SUCCESS,
+                    null,
+                    tokensInput,
+                    tokensOutput,
+                    start
+            );
+        } catch (Exception ex) {
+            String errorMessage = ex.getMessage();
+            saveAgentLog(
+                    "ResumeParserAgent",
+                    user,
+                    AgentExecutionStatus.FAILURE,
+                    errorMessage,
+                    tokensInput,
+                    0,
+                    start
+            );
+            if (ex instanceof RuntimeException runtimeException) {
+                throw runtimeException;
+            }
+            throw new RuntimeException("Resume parser agent failed", ex);
         }
 
-        MasterResumeJson parsedResume = resumeParserAgent.run(resumeText);
-
-        MasterResume masterResume = MasterResume.builder()
-                .user(user)
-                .resumeJson(parsedResume)
-                .active(true)
-                .build();
+        MasterResume masterResume = existingMasterResume != null
+                ? updateExistingMasterResume(existingMasterResume, parsedResume)
+                : MasterResume.builder()
+                    .user(user)
+                    .resumeJson(parsedResume)
+                    .active(true)
+                    .build();
 
         try {
             masterResumeRepository.save(masterResume);
@@ -146,7 +186,7 @@ public class MasterResumeService {
                 .orElseThrow(() ->
                         new IllegalStateException("Authenticated user not found"));
 
-        MasterResume masterResume = masterResumeRepository.findByUser(user)
+        MasterResume masterResume = masterResumeRepository.findByUserAndActive(user, true)
                 .orElseThrow(() ->
                         new IllegalStateException("Master resume not found"));
 
@@ -164,7 +204,14 @@ public class MasterResumeService {
         MasterResume masterResume = masterResumeRepository.findByUser(user)
                 .orElseThrow(() -> new IllegalStateException("Master resume not found"));
 
-        masterResumeRepository.delete(masterResume);
+        masterResume.setActive(false);
+
+        try {
+            masterResumeRepository.save(masterResume);
+        } catch (DataIntegrityViolationException ex) {
+            // This handles race conditions if two requests come together
+            throw new DuplicateResourceException("Master resume does not exist.");
+        }
 
         return CommonResponse.builder()
                 .email(email)
@@ -194,5 +241,47 @@ public class MasterResumeService {
         // NOTE: To keep response short, we assign root fields directly only if needed.
 
         return objectMapper.convertValue(request, MasterResumeJson.class);
+    }
+
+    private MasterResume updateExistingMasterResume(MasterResume masterResume, MasterResumeJson resumeJson) {
+        masterResume.setResumeJson(resumeJson);
+        masterResume.setActive(true);
+        return masterResume;
+    }
+
+    private ResumeAgentLog saveAgentLog(
+            String agentName,
+            User user,
+            AgentExecutionStatus status,
+            String errorMessage,
+            Integer tokensInput,
+            Integer tokensOutput,
+            long startNanoTime
+    ) {
+        long elapsedMs = (System.nanoTime() - startNanoTime) / 1_000_000L;
+        int executionTimeMs = elapsedMs > Integer.MAX_VALUE ? Integer.MAX_VALUE : (int) elapsedMs;
+
+        ResumeAgentLog agentLog = ResumeAgentLog.builder()
+                .agentName(agentName)
+                .user(user)
+                .status(status)
+                .executionTimeMs(executionTimeMs)
+                .errorMessage(errorMessage)
+                .tokensInput(tokensInput)
+                .tokensOutput(tokensOutput)
+                .build();
+
+        TransactionTemplate transactionTemplate = new TransactionTemplate(transactionManager);
+        transactionTemplate.setPropagationBehavior(TransactionDefinition.PROPAGATION_REQUIRES_NEW);
+        ResumeAgentLog saved = transactionTemplate.execute(statusTx -> agentLogRepository.save(agentLog));
+        return saved == null ? agentLog : saved;
+    }
+
+    private int countTokensFromJson(Object value) throws JsonProcessingException {
+        return TokenCounter.countTokens(writeJson(value));
+    }
+
+    private String writeJson(Object value) throws JsonProcessingException {
+        return objectMapper.writeValueAsString(value);
     }
 }

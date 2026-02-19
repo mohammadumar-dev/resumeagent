@@ -167,7 +167,7 @@ SCHEMA (MasterResumeJson)
     {
       "name": "string",
       "issuer": "string",
-      "year": 2024,
+      "year": number YYYY,
       "credentialId": "string",
       "validUntil": null
     }

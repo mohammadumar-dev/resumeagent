@@ -1,12 +1,12 @@
 package com.resumeagent.controller;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
+import com.resumeagent.dto.request.CreateAndUpdateMasterResume;
 import com.resumeagent.dto.response.CommonResponse;
 import com.resumeagent.dto.response.MasterResumeResponse;
 import com.resumeagent.dto.response.ResumeListResponse;
-import com.resumeagent.repository.ResumeRepository;
-import com.resumeagent.repository.UserRepository;
 import com.resumeagent.service.ResumeService;
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
@@ -25,10 +25,9 @@ import java.util.UUID;
 public class ResumeController {
 
     private final ResumeService resumeService;
-    private final ResumeRepository resumeRepository;
-    private final UserRepository userRepository;
 
     @PostMapping(value = "/generate", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    @ResponseStatus(HttpStatus.CREATED)
     public CommonResponse generateResume(
             Authentication authentication,
             @RequestPart("jobDescription") String jobDescription) throws JsonProcessingException {
@@ -37,14 +36,35 @@ public class ResumeController {
         return resumeService.generateResume(jobDescription, email);
     }
 
-
     @GetMapping(value = "/list/all")
+    @ResponseStatus(HttpStatus.OK)
     public ResumeListResponse resumeList(
             Authentication authentication,
             @PageableDefault(size = 20, sort = "createdAt", direction = Sort.Direction.DESC) Pageable pageable
     ) {
         String email = authentication.getName();;
         return resumeService.getResumeList(email, pageable);
+    }
+
+    @PutMapping(value = "/update/{id}")
+    @ResponseStatus(HttpStatus.OK)
+    public CommonResponse updateMasterResume(
+            Authentication authentication,
+            @PathVariable UUID id,
+            @Valid @RequestBody CreateAndUpdateMasterResume request
+    ) {
+        String email = authentication.getName();
+        return resumeService.updateResume(id, request, email);
+    }
+
+    @DeleteMapping(value = "delete/{id}")
+    @ResponseStatus(HttpStatus.OK)
+    public CommonResponse deleteResume(
+            Authentication authentication,
+            @PathVariable UUID id
+    ) {
+        String email = authentication.getName();
+        return resumeService.deleteResumeById(id, email);
     }
 
     /**
