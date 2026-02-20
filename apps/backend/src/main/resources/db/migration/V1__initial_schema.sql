@@ -113,6 +113,8 @@ CREATE TABLE resume_agent_logs (
     agent_name VARCHAR(100) NOT NULL,
     tokens_input INT,
     tokens_output INT,
+    attempt_number INT,
+    input_snapshot TEXT,
     execution_time_ms INT,
     status VARCHAR(20) CHECK (status IN ('SUCCESS', 'FAILURE', 'PARTIAL')),
     error_message TEXT,
@@ -128,6 +130,36 @@ CREATE INDEX idx_agent_logs_created_at ON resume_agent_logs(created_at DESC);
 COMMENT ON TABLE resume_agent_logs IS 'Audit trail for AI agent operations with performance metrics';
 COMMENT ON COLUMN resume_agent_logs.tokens_input IS 'Number of input tokens used in AI operation';
 COMMENT ON COLUMN resume_agent_logs.tokens_output IS 'Number of output tokens generated';
+COMMENT ON COLUMN resume_agent_logs.attempt_number IS 'Retry attempt number for a given agent execution';
+COMMENT ON COLUMN resume_agent_logs.input_snapshot IS 'Optional truncated input snapshot for debugging';
+
+-- ============================================================================
+-- RESUME GENERATION STATE MACHINE
+-- ============================================================================
+
+CREATE TABLE resume_generations (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    master_resume_id UUID NOT NULL REFERENCES master_resumes(id) ON DELETE RESTRICT,
+    job_description TEXT NOT NULL,
+    status VARCHAR(20) NOT NULL DEFAULT 'PENDING'
+        CHECK (status IN ('PENDING', 'JD_ANALYZED', 'MATCHED', 'REWRITTEN', 'OPTIMIZED', 'COMPLETED', 'FAILED')),
+    jd_analyzed_json JSONB,
+    matching_json JSONB,
+    rewritten_resume_json JSONB,
+    optimized_resume_json JSONB,
+    job_title_targeted VARCHAR(150),
+    company_targeted VARCHAR(150),
+    failure_reason TEXT,
+    resume_id UUID REFERENCES resumes(id) ON DELETE SET NULL,
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Indexes for resume_generations table
+CREATE INDEX idx_resume_generations_user_id ON resume_generations(user_id);
+CREATE INDEX idx_resume_generations_status ON resume_generations(status);
+CREATE INDEX idx_resume_generations_created_at ON resume_generations(created_at);
 
 -- ============================================================================
 -- SECURITY & AUTHENTICATION TABLES
@@ -305,6 +337,11 @@ CREATE TRIGGER update_resumes_updated_at
 
 CREATE TRIGGER update_master_resumes_updated_at
     BEFORE UPDATE ON master_resumes
+    FOR EACH ROW
+    EXECUTE FUNCTION update_updated_at_column();
+
+CREATE TRIGGER update_resume_generations_updated_at
+    BEFORE UPDATE ON resume_generations
     FOR EACH ROW
     EXECUTE FUNCTION update_updated_at_column();
 

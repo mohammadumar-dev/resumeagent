@@ -7,6 +7,8 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
 import java.util.Collection;
@@ -28,4 +30,14 @@ public interface ResumeRepository extends JpaRepository<Resume, UUID> {
     Page<Resume> findByUserAndStatusIn(User user, Collection<ResumeStatus> statuses, Pageable pageable);
 
     List<Resume> findByUserAndStatusIn(User user, Collection<ResumeStatus> statuses, Sort sort);
+
+    long countByUserIdAndStatusNot(UUID userId, ResumeStatus status);
+
+    @Query("select count(distinct r.jobTitleTargeted) " +
+            "from Resume r " +
+            "where r.user.id = :userId and r.status <> :status")
+    long countDistinctJobTitleTargetedByUserIdAndStatusNot(
+            @Param("userId") UUID userId,
+            @Param("status") ResumeStatus status
+    );
 }

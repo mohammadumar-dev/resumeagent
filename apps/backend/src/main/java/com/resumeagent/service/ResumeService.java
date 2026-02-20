@@ -6,26 +6,31 @@ import com.resumeagent.ai.agents.ATSOptimizationAgent;
 import com.resumeagent.ai.agents.JobDescriptionAnalyzerAgent;
 import com.resumeagent.ai.agents.MatchingAgent;
 import com.resumeagent.ai.agents.ResumeRewriteAgent;
+import com.resumeagent.ai.orchestration.AgentExecutor;
 import com.resumeagent.ai.util.TokenCounter;
 import com.resumeagent.dto.request.CreateAndUpdateMasterResume;
 import com.resumeagent.dto.response.*;
 import com.resumeagent.entity.MasterResume;
 import com.resumeagent.entity.Resume;
-import com.resumeagent.entity.ResumeAgentLog;
+import com.resumeagent.entity.ResumeGeneration;
 import com.resumeagent.entity.User;
-import com.resumeagent.entity.enums.AgentExecutionStatus;
+import com.resumeagent.entity.enums.ResumeGenerationStatus;
 import com.resumeagent.entity.enums.ResumeStatus;
 import com.resumeagent.entity.model.JobDescriptionAnalyzerJson;
 import com.resumeagent.entity.model.MasterResumeJson;
 import com.resumeagent.entity.model.MatchingAgentJson;
 import com.resumeagent.exception.DuplicateResourceException;
+import com.resumeagent.exception.FatalAgentException;
+import com.resumeagent.exception.TransientAgentException;
 import com.resumeagent.render.GreenResumeDocxService;
 import com.resumeagent.render.BlueResumeDocxService;
 import com.resumeagent.repository.MasterResumeRepository;
-import com.resumeagent.repository.ResumeAgentLogRepository;
+import com.resumeagent.repository.ResumeGenerationRepository;
 import com.resumeagent.repository.ResumeRepository;
 import com.resumeagent.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.dao.DataIntegrityViolationException;
@@ -43,8 +48,8 @@ import org.springframework.transaction.support.TransactionTemplate;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.time.LocalDate;
-import java.util.ArrayList;
 import java.util.EnumSet;
+import java.util.Optional;
 import java.util.List;
 import java.util.UUID;
 import java.util.stream.Collectors;
@@ -52,11 +57,13 @@ import java.util.stream.Collectors;
 @Service
 @RequiredArgsConstructor
 public class ResumeService {
+    private static final Logger log = LoggerFactory.getLogger(ResumeService.class);
 
     // Repositories
     private final UserRepository userRepository;
     private final MasterResumeRepository masterResumeRepository;
-    private final ResumeAgentLogRepository agentLogRepository;
+    private final ResumeGenerationRepository resumeGenerationRepository;
+    private final AgentExecutor agentExecutor;
     private final ObjectMapper objectMapper;
 
     // AI Agents
@@ -86,220 +93,394 @@ public class ResumeService {
      * @return A CommonResponse indicating success or failure.
      * @throws JsonProcessingException If there is an error processing JSON.
      */
-    @Transactional
     public CommonResponse generateResume(String jobDescription, String email) throws JsonProcessingException {
 
-        User user = userRepository.findByEmailForUpdate(email)
+        User user = userRepository.findByEmail(email)
                 .orElseThrow(() -> new IllegalStateException("Authenticated user not found"));
 
-        LocalDate currentMonth = LocalDate.now().withDayOfMonth(1);
+        sendStatusSafe(user.getId(), "ResumeGeneration", "STARTED");
 
-        // Reset monthly usage if it's a new month
-        if (!user.getUsageMonth().equals(currentMonth)) {
-            user.setUsageMonth(currentMonth);
-            user.setResumeGenerationUsed(0);
-        }
+        // Reset monthly usage if needed (short transaction)
+        refreshUsageMonthAndValidateLimit(user.getId());
 
-        // Enforce resume generation limits based on user role
-        if (user.getResumeGenerationUsed() >= user.getResumeGenerationLimit()) {
-            throw new IllegalStateException(
-                    "Monthly resume generation limit reached. Upgrade your plan to continue."
-            );
-        }
+        MasterResume masterResume = masterResumeRepository.findByUser(user)
+                .orElseThrow(() -> new IllegalStateException("Master resume not found"));
 
+        ResumeGeneration generation = findOrCreateGeneration(user, masterResume, jobDescription);
 
-        // Fetch user's master resume
-        MasterResume masterResume =  masterResumeRepository.findByUser(user).orElseThrow(
-                () -> new IllegalStateException("Master resume not found"));
-
-        // Extract master resume JSON model
-        MasterResumeJson masterResumeJson = masterResume.getResumeJson();
-
-        List<ResumeAgentLog> agentLogs = new ArrayList<>();
-
-        // Execute AI pipeline
-        // Step 1: Job Description Analysis
-        JobDescriptionAnalyzerJson jobDescriptionAnalyzerJson = executeAgentWithLog(
-                "JobDescriptionAnalyzerAgent",
-                user,
-                null,
-                agentLogs,
-                TokenCounter.countTokens(jobDescription),
-                this::writeJson,
-                () -> jobDescriptionAnalyzerAgent.executeJobDescriptionAnalyzerAgent(jobDescription)
-        );
-
-        // Step 2: Matching
-        MatchingAgentJson matchingAgentJson = executeAgentWithLog(
-                "MatchingAgent",
-                user,
-                null,
-                agentLogs,
-                countTokensFromJson(masterResumeJson) + countTokensFromJson(jobDescriptionAnalyzerJson),
-                this::writeJson,
-                () -> matchingAgent.executeMatchingAgent(masterResumeJson, jobDescriptionAnalyzerJson)
-        );
-
-        // Step 3: Resume Rewriting
-        MasterResumeJson rewrittenResume = executeAgentWithLog(
-                "ResumeRewriteAgent",
-                user,
-                null,
-                agentLogs,
-                countTokensFromJson(masterResumeJson)
-                        + countTokensFromJson(jobDescriptionAnalyzerJson)
-                        + countTokensFromJson(matchingAgentJson),
-                this::writeJson,
-                () -> resumeRewriteAgent.executeResumeRewriteAgent(
-                        masterResumeJson, jobDescriptionAnalyzerJson, matchingAgentJson)
-        );
-
-        // Step 4: ATS Optimization
-        MasterResumeJson finalResume = executeAgentWithLog(
-                "ATSOptimizationAgent",
-                user,
-                null,
-                agentLogs,
-                countTokensFromJson(rewrittenResume),
-                this::writeJson,
-                () -> atsOptimizationAgent.executeATSOptimizationAgent(rewrittenResume)
-        );
-
-        // Extract targeted job title and company name
-        String jobTitle = jobDescriptionAnalyzerJson.getJobIdentity().getJobTitle();
-        String companyName = jobDescriptionAnalyzerJson.getJobIdentity().getCompanyName();
-
-        // Save the generated resume
-        Resume generatedResume = Resume.builder()
-                .user(user)
-                .masterResume(masterResume)
-                .jobTitleTargeted(jobTitle)
-                .jobDescriptionAnalyzerJson(jobDescriptionAnalyzerJson)
-                .companyTargeted(companyName)
-                .resumeJson(finalResume)
-                .status(ResumeStatus.ACTIVE)
-                .build();
-
-        user.setResumeGenerationUsed(user.getResumeGenerationUsed() + 1);
-
-        // Handle potential data integrity issues
         try {
-            // Save generated resume
-            resumeRepository.save(generatedResume);
+            MasterResumeJson masterResumeJson = masterResume.getResumeJson();
 
-            // Update user's resume generation count
-            userRepository.save(user);
-        } catch (DataIntegrityViolationException ex) {
-            // This handles race conditions or other integrity issues
-            throw new RuntimeException("Failed to save generated resume", ex);
+            JobDescriptionAnalyzerJson jobDescriptionAnalyzerJson =
+                    ensureJobDescriptionAnalyzed(generation, user, jobDescription);
+
+            MatchingAgentJson matchingAgentJson =
+                    ensureMatched(generation, user, masterResumeJson, jobDescriptionAnalyzerJson);
+
+            MasterResumeJson rewrittenResume =
+                    ensureRewritten(generation, user, masterResumeJson, jobDescriptionAnalyzerJson, matchingAgentJson);
+
+            MasterResumeJson finalResume =
+                    ensureOptimized(generation, user, rewrittenResume);
+
+            finalizeGeneration(generation, user.getId(), masterResume, jobDescriptionAnalyzerJson, finalResume);
+            sendStatusSafe(user.getId(), "ResumeGeneration", "SUCCESS");
+
+            return CommonResponse.builder()
+                    .message("Resume generated successfully")
+                    .email(email)
+                    .build();
+        } catch (TransientAgentException | FatalAgentException | JsonProcessingException ex) {
+            markGenerationFailed(generation.getId(), ex.getMessage());
+            sendStatusSafe(user.getId(), "ResumeGeneration", "FAILED");
+            throw ex;
+        } catch (RuntimeException ex) {
+            markGenerationFailed(generation.getId(), ex.getMessage());
+            sendStatusSafe(user.getId(), "ResumeGeneration", "FAILED");
+            throw ex;
+        }
+    }
+
+    private ResumeGeneration findOrCreateGeneration(User user, MasterResume masterResume, String jobDescription) {
+        Optional<ResumeGeneration> existing = resumeGenerationRepository
+                .findFirstByUserIdAndStatusInOrderByCreatedAtDesc(
+                        user.getId(),
+                        EnumSet.of(
+                                ResumeGenerationStatus.PENDING,
+                                ResumeGenerationStatus.JD_ANALYZED,
+                                ResumeGenerationStatus.MATCHED,
+                                ResumeGenerationStatus.REWRITTEN,
+                                ResumeGenerationStatus.OPTIMIZED
+                        )
+                );
+
+        if (existing.isPresent() && jobDescription.equals(existing.get().getJobDescription())) {
+            return existing.get();
         }
 
-        if (!agentLogs.isEmpty()) {
-            agentLogs.forEach(log -> log.setResume(generatedResume));
-            agentLogRepository.saveAll(agentLogs);
-        }
-
-        // Return success response
-        return CommonResponse.builder()
-                .message("Resume generated successfully")
-                .email(email)
-                .build();
+        TransactionTemplate template = new TransactionTemplate(transactionManager);
+        template.setPropagationBehavior(TransactionDefinition.PROPAGATION_REQUIRES_NEW);
+        return template.execute(status -> resumeGenerationRepository.save(
+                ResumeGeneration.builder()
+                        .user(user)
+                        .masterResume(masterResume)
+                        .jobDescription(jobDescription)
+                        .status(ResumeGenerationStatus.PENDING)
+                        .build()
+        ));
     }
 
-    private interface AgentCall<T> {
-        T call() throws Exception;
+    private void refreshUsageMonthAndValidateLimit(UUID userId) {
+        TransactionTemplate template = new TransactionTemplate(transactionManager);
+        template.setPropagationBehavior(TransactionDefinition.PROPAGATION_REQUIRES_NEW);
+        template.executeWithoutResult(status -> {
+            User lockedUser = userRepository.findByIdForUpdate(userId)
+                    .orElseThrow(() -> new IllegalStateException("Authenticated user not found"));
+            LocalDate currentMonth = LocalDate.now().withDayOfMonth(1);
+            if (lockedUser.getUsageMonth() == null || !lockedUser.getUsageMonth().equals(currentMonth)) {
+                lockedUser.setUsageMonth(currentMonth);
+                lockedUser.setResumeGenerationUsed(0);
+                userRepository.save(lockedUser);
+            }
+            if (lockedUser.getResumeGenerationUsed() >= lockedUser.getResumeGenerationLimit()) {
+                throw new IllegalStateException("Monthly resume generation limit reached. Upgrade your plan to continue.");
+            }
+        });
     }
 
-    private interface AgentOutputSerializer<T> {
-        String serialize(T output) throws JsonProcessingException;
-    }
-
-    private <T> T executeAgentWithLog(
-            String agentName,
+    private JobDescriptionAnalyzerJson ensureJobDescriptionAnalyzed(
+            ResumeGeneration generation,
             User user,
-            Resume resume,
-            List<ResumeAgentLog> agentLogs,
-            int tokensInput,
-            AgentOutputSerializer<T> outputSerializer,
-            AgentCall<T> action
+            String jobDescription
     ) throws JsonProcessingException {
-        messagingTemplate.convertAndSend(
-                "/topic/resume-status/" + user.getId(),
-                new AgentStatusMessageResponse(agentName, "STARTED")
-        );
-        long start = System.nanoTime();
-        try {
-            T result = action.call();
-            int tokensOutput = TokenCounter.countTokens(outputSerializer.serialize(result));
-            agentLogs.add(saveAgentLog(
-                    agentName,
-                    user,
-                    resume,
-                    AgentExecutionStatus.SUCCESS,
-                    null,
-                    tokensInput,
-                    tokensOutput,
-                    start
-            ));
+        if (generation.getStatus().isAtLeast(ResumeGenerationStatus.JD_ANALYZED)
+                && generation.getJobDescriptionAnalyzerJson() != null) {
+            return generation.getJobDescriptionAnalyzerJson();
+        }
 
-            messagingTemplate.convertAndSend(
-                    "/topic/resume-status/" + user.getId(),
-                    new AgentStatusMessageResponse(agentName, "SUCCESS")
+        sendStatusSafe(user.getId(), "JobDescriptionAnalyzerAgent", "STARTED");
+        try {
+            JobDescriptionAnalyzerJson result = agentExecutor.execute(
+                    AgentExecutor.AgentExecutionRequest.<JobDescriptionAnalyzerJson>builder()
+                            .agentName("JobDescriptionAnalyzerAgent")
+                            .user(user)
+                            .resume(null)
+                            .tokensInput(TokenCounter.countTokens(jobDescription))
+                            .inputSnapshot(jobDescription)
+                            .outputSerializer(this::writeJson)
+                            .action(() -> jobDescriptionAnalyzerAgent.executeJobDescriptionAnalyzerAgent(jobDescription))
+                            .build()
             );
 
+            String jobTitle = result.getJobIdentity() == null ? null : result.getJobIdentity().getJobTitle();
+            String company = result.getJobIdentity() == null ? null : result.getJobIdentity().getCompanyName();
+            generation.setJobDescriptionAnalyzerJson(result);
+            generation.setJobTitleTargeted(jobTitle);
+            generation.setCompanyTargeted(company);
+            generation.setStatus(ResumeGenerationStatus.JD_ANALYZED);
+
+            updateGeneration(generation.getId(), updated -> {
+                updated.setJobDescriptionAnalyzerJson(result);
+                updated.setJobTitleTargeted(jobTitle);
+                updated.setCompanyTargeted(company);
+                updated.setStatus(ResumeGenerationStatus.JD_ANALYZED);
+                updated.setFailureReason(null);
+            });
+
+            sendStatusSafe(user.getId(), "JobDescriptionAnalyzerAgent", "SUCCESS");
             return result;
-        } catch (Exception ex) {
-            String errorMessage = ex.getMessage();
-            agentLogs.add(saveAgentLog(
-                    agentName,
-                    user,
-                    resume,
-                    AgentExecutionStatus.FAILURE,
-                    errorMessage,
-                    tokensInput,
-                    0,
-                    start
-            ));
-            if (ex instanceof JsonProcessingException jsonProcessingException) {
-                throw jsonProcessingException;
+        } catch (RuntimeException ex) {
+            sendStatusSafe(user.getId(), "JobDescriptionAnalyzerAgent", "FAILED");
+            throw ex;
+        }
+    }
+
+    private MatchingAgentJson ensureMatched(
+            ResumeGeneration generation,
+            User user,
+            MasterResumeJson masterResumeJson,
+            JobDescriptionAnalyzerJson jobDescriptionAnalyzerJson
+    ) throws JsonProcessingException {
+        if (generation.getStatus().isAtLeast(ResumeGenerationStatus.MATCHED)
+                && generation.getMatchingAgentJson() != null) {
+            return generation.getMatchingAgentJson();
+        }
+
+        sendStatusSafe(user.getId(), "MatchingAgent", "STARTED");
+        try {
+            int tokensInput = countTokensFromJson(masterResumeJson) + countTokensFromJson(jobDescriptionAnalyzerJson);
+            MatchingAgentJson result = agentExecutor.execute(
+                    AgentExecutor.AgentExecutionRequest.<MatchingAgentJson>builder()
+                            .agentName("MatchingAgent")
+                            .user(user)
+                            .resume(null)
+                            .tokensInput(tokensInput)
+                            .inputSnapshot(safeJsonSnapshot(jobDescriptionAnalyzerJson))
+                            .outputSerializer(this::writeJson)
+                            .action(() -> matchingAgent.executeMatchingAgent(masterResumeJson, jobDescriptionAnalyzerJson))
+                            .build()
+            );
+
+            generation.setMatchingAgentJson(result);
+            generation.setStatus(ResumeGenerationStatus.MATCHED);
+
+            updateGeneration(generation.getId(), updated -> {
+                updated.setMatchingAgentJson(result);
+                updated.setStatus(ResumeGenerationStatus.MATCHED);
+                updated.setFailureReason(null);
+            });
+
+            sendStatusSafe(user.getId(), "MatchingAgent", "SUCCESS");
+            return result;
+        } catch (RuntimeException ex) {
+            sendStatusSafe(user.getId(), "MatchingAgent", "FAILED");
+            throw ex;
+        }
+    }
+
+    private MasterResumeJson ensureRewritten(
+            ResumeGeneration generation,
+            User user,
+            MasterResumeJson masterResumeJson,
+            JobDescriptionAnalyzerJson jobDescriptionAnalyzerJson,
+            MatchingAgentJson matchingAgentJson
+    ) throws JsonProcessingException {
+        if (generation.getStatus().isAtLeast(ResumeGenerationStatus.REWRITTEN)
+                && generation.getRewrittenResumeJson() != null) {
+            return generation.getRewrittenResumeJson();
+        }
+
+        sendStatusSafe(user.getId(), "ResumeRewriteAgent", "STARTED");
+        try {
+            int tokensInput = countTokensFromJson(masterResumeJson)
+                    + countTokensFromJson(jobDescriptionAnalyzerJson)
+                    + countTokensFromJson(matchingAgentJson);
+            MasterResumeJson result = agentExecutor.execute(
+                    AgentExecutor.AgentExecutionRequest.<MasterResumeJson>builder()
+                            .agentName("ResumeRewriteAgent")
+                            .user(user)
+                            .resume(null)
+                            .tokensInput(tokensInput)
+                            .inputSnapshot(safeJsonSnapshot(matchingAgentJson))
+                            .outputSerializer(this::writeJson)
+                            .action(() -> resumeRewriteAgent.executeResumeRewriteAgent(
+                                    masterResumeJson, jobDescriptionAnalyzerJson, matchingAgentJson))
+                            .build()
+            );
+
+            generation.setRewrittenResumeJson(result);
+            generation.setStatus(ResumeGenerationStatus.REWRITTEN);
+
+            updateGeneration(generation.getId(), updated -> {
+                updated.setRewrittenResumeJson(result);
+                updated.setStatus(ResumeGenerationStatus.REWRITTEN);
+                updated.setFailureReason(null);
+            });
+
+            sendStatusSafe(user.getId(), "ResumeRewriteAgent", "SUCCESS");
+            return result;
+        } catch (RuntimeException ex) {
+            sendStatusSafe(user.getId(), "ResumeRewriteAgent", "FAILED");
+            throw ex;
+        }
+    }
+
+    private MasterResumeJson ensureOptimized(
+            ResumeGeneration generation,
+            User user,
+            MasterResumeJson rewrittenResume
+    ) throws JsonProcessingException {
+        if (generation.getStatus().isAtLeast(ResumeGenerationStatus.OPTIMIZED)
+                && generation.getOptimizedResumeJson() != null) {
+            return generation.getOptimizedResumeJson();
+        }
+
+        sendStatusSafe(user.getId(), "ATSOptimizationAgent", "STARTED");
+        try {
+            int tokensInput = countTokensFromJson(rewrittenResume);
+            MasterResumeJson result = agentExecutor.execute(
+                    AgentExecutor.AgentExecutionRequest.<MasterResumeJson>builder()
+                            .agentName("ATSOptimizationAgent")
+                            .user(user)
+                            .resume(null)
+                            .tokensInput(tokensInput)
+                            .inputSnapshot(safeJsonSnapshot(rewrittenResume))
+                            .outputSerializer(this::writeJson)
+                            .action(() -> atsOptimizationAgent.executeATSOptimizationAgent(rewrittenResume))
+                            .build()
+            );
+
+            generation.setOptimizedResumeJson(result);
+            generation.setStatus(ResumeGenerationStatus.OPTIMIZED);
+
+            updateGeneration(generation.getId(), updated -> {
+                updated.setOptimizedResumeJson(result);
+                updated.setStatus(ResumeGenerationStatus.OPTIMIZED);
+                updated.setFailureReason(null);
+            });
+
+            sendStatusSafe(user.getId(), "ATSOptimizationAgent", "SUCCESS");
+            return result;
+        } catch (RuntimeException ex) {
+            sendStatusSafe(user.getId(), "ATSOptimizationAgent", "FAILED");
+            throw ex;
+        }
+    }
+
+    private void finalizeGeneration(
+            ResumeGeneration generation,
+            UUID userId,
+            MasterResume masterResume,
+            JobDescriptionAnalyzerJson jobDescriptionAnalyzerJson,
+            MasterResumeJson finalResume
+    ) {
+        TransactionTemplate template = new TransactionTemplate(transactionManager);
+        template.setPropagationBehavior(TransactionDefinition.PROPAGATION_REQUIRES_NEW);
+        template.executeWithoutResult(status -> {
+            ResumeGeneration current = resumeGenerationRepository.findById(generation.getId())
+                    .orElseThrow(() -> new IllegalStateException("Resume generation not found"));
+            if (current.getStatus() == ResumeGenerationStatus.FAILED) {
+                throw new IllegalStateException("Resume generation already failed");
             }
 
-            messagingTemplate.convertAndSend(
-                    "/topic/resume-status/" + user.getId(),
-                    new AgentStatusMessageResponse(agentName, "FAILED")
-            );
-            throw new RuntimeException("Agent execution failed: " + agentName, ex);
+            User lockedUser = userRepository.findByIdForUpdate(userId)
+                    .orElseThrow(() -> new IllegalStateException("Authenticated user not found"));
+
+            LocalDate currentMonth = LocalDate.now().withDayOfMonth(1);
+            if (lockedUser.getUsageMonth() == null || !lockedUser.getUsageMonth().equals(currentMonth)) {
+                lockedUser.setUsageMonth(currentMonth);
+                lockedUser.setResumeGenerationUsed(0);
+            }
+
+            if (lockedUser.getResumeGenerationUsed() >= lockedUser.getResumeGenerationLimit()) {
+                throw new IllegalStateException("Monthly resume generation limit reached. Upgrade your plan to continue.");
+            }
+
+            String jobTitle = jobDescriptionAnalyzerJson.getJobIdentity() == null
+                    ? null
+                    : jobDescriptionAnalyzerJson.getJobIdentity().getJobTitle();
+            String companyName = jobDescriptionAnalyzerJson.getJobIdentity() == null
+                    ? null
+                    : jobDescriptionAnalyzerJson.getJobIdentity().getCompanyName();
+
+            Resume generatedResume = Resume.builder()
+                    .user(lockedUser)
+                    .masterResume(masterResume)
+                    .jobTitleTargeted(jobTitle)
+                    .jobDescriptionAnalyzerJson(jobDescriptionAnalyzerJson)
+                    .companyTargeted(companyName)
+                    .resumeJson(finalResume)
+                    .status(ResumeStatus.ACTIVE)
+                    .build();
+
+            try {
+                resumeRepository.save(generatedResume);
+                lockedUser.setResumeGenerationUsed(lockedUser.getResumeGenerationUsed() + 1);
+                userRepository.save(lockedUser);
+
+                ResumeGeneration updated = resumeGenerationRepository.findById(generation.getId())
+                        .orElseThrow(() -> new IllegalStateException("Resume generation not found"));
+                updated.setResume(generatedResume);
+                updated.setStatus(ResumeGenerationStatus.COMPLETED);
+                updated.setFailureReason(null);
+                resumeGenerationRepository.save(updated);
+            } catch (DataIntegrityViolationException ex) {
+                throw new RuntimeException("Failed to save generated resume", ex);
+            }
+        });
+    }
+
+    private void markGenerationFailed(UUID generationId, String reason) {
+        TransactionTemplate template = new TransactionTemplate(transactionManager);
+        template.setPropagationBehavior(TransactionDefinition.PROPAGATION_REQUIRES_NEW);
+        template.executeWithoutResult(status -> {
+            ResumeGeneration generation = resumeGenerationRepository.findById(generationId)
+                    .orElseThrow(() -> new IllegalStateException("Resume generation not found"));
+            if (generation.getStatus() == ResumeGenerationStatus.COMPLETED) {
+                return;
+            }
+            generation.setStatus(ResumeGenerationStatus.FAILED);
+            generation.setFailureReason(reason);
+            resumeGenerationRepository.save(generation);
+        });
+    }
+
+    private ResumeGeneration updateGeneration(UUID id, java.util.function.Consumer<ResumeGeneration> updater) {
+        TransactionTemplate template = new TransactionTemplate(transactionManager);
+        template.setPropagationBehavior(TransactionDefinition.PROPAGATION_REQUIRES_NEW);
+        return template.execute(status -> {
+            ResumeGeneration generation = resumeGenerationRepository.findById(id)
+                    .orElseThrow(() -> new IllegalStateException("Resume generation not found"));
+            if (generation.getStatus() == ResumeGenerationStatus.FAILED
+                    || generation.getStatus() == ResumeGenerationStatus.COMPLETED) {
+                return generation;
+            }
+            updater.accept(generation);
+            return resumeGenerationRepository.save(generation);
+        });
+    }
+
+    private void sendStatus(UUID userId, String agentName, String status) {
+        messagingTemplate.convertAndSend(
+                "/topic/resume-status/" + userId,
+                new AgentStatusMessageResponse(agentName, status)
+        );
+    }
+
+    private void sendStatusSafe(UUID userId, String agentName, String status) {
+        try {
+            sendStatus(userId, agentName, status);
+        } catch (RuntimeException ex) {
+            log.warn("WebSocket status send failed: agent={}, status={}, userId={}", agentName, status, userId, ex);
         }
     }
 
-    private ResumeAgentLog saveAgentLog(
-            String agentName,
-            User user,
-            Resume resume,
-            AgentExecutionStatus status,
-            String errorMessage,
-            Integer tokensInput,
-            Integer tokensOutput,
-            long startNanoTime
-    ) {
-        long elapsedMs = (System.nanoTime() - startNanoTime) / 1_000_000L;
-        int executionTimeMs = elapsedMs > Integer.MAX_VALUE ? Integer.MAX_VALUE : (int) elapsedMs;
-
-        ResumeAgentLog agentLog = ResumeAgentLog.builder()
-                .agentName(agentName)
-                .user(user)
-                .resume(resume)
-                .status(status)
-                .executionTimeMs(executionTimeMs)
-                .errorMessage(errorMessage)
-                .tokensInput(tokensInput)
-                .tokensOutput(tokensOutput)
-                .build();
-
-        TransactionTemplate transactionTemplate = new TransactionTemplate(transactionManager);
-        transactionTemplate.setPropagationBehavior(TransactionDefinition.PROPAGATION_REQUIRES_NEW);
-        ResumeAgentLog saved = transactionTemplate.execute(statusTx -> agentLogRepository.save(agentLog));
-        return saved == null ? agentLog : saved;
+    private String safeJsonSnapshot(Object value) {
+        try {
+            return writeJson(value);
+        } catch (JsonProcessingException ex) {
+            return null;
+        }
     }
 
     private int countTokensFromJson(Object value) throws JsonProcessingException {
