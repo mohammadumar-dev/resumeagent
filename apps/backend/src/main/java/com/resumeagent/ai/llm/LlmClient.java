@@ -15,6 +15,7 @@ public class LlmClient {
 
     // Ordered by preference
     private static final List<String> FREE_MODELS = List.of(
+            "upstage/solar-pro-3:free",
             "openrouter/free",
             "nvidia/nemotron-3-nano-30b-a3b:free",
             "arcee-ai/trinity-large-preview:free",

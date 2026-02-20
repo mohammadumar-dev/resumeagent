@@ -29,7 +29,7 @@ import java.util.UUID;
 @NoArgsConstructor
 @AllArgsConstructor
 @EqualsAndHashCode(of = "id")
-@ToString(exclude = "errorMessage")
+@ToString(exclude = {"errorMessage", "inputSnapshot"})
 public class ResumeAgentLog implements Serializable {
 
     @Serial
@@ -74,6 +74,12 @@ public class ResumeAgentLog implements Serializable {
 
     @Column(name = "tokens_output")
     private Integer tokensOutput;
+
+    @Column(name = "attempt_number")
+    private Integer attemptNumber;
+
+    @Column(name = "input_snapshot", columnDefinition = "text")
+    private String inputSnapshot;
 
     /**
      * Execution time in milliseconds.
