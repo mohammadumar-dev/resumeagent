@@ -1,7 +1,7 @@
 import { AppSidebar } from "@/components/app-sidebar";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { CreateMasterResumeForm } from "@/components/master-resume/create-master-resume-form";
-import { SiteHeaderMasterResume } from "@/components/master-resume/site-header-master-resume";
+import { SiteHeader } from "@/components/site-header";
 import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar";
 
 export default function CreateMasterResumePage() {
@@ -17,7 +17,7 @@ export default function CreateMasterResumePage() {
       >
         <AppSidebar variant="floating" />
         <SidebarInset>
-          <SiteHeaderMasterResume />
+          <SiteHeader title="Create Master Resume" />
           <div className="flex flex-1 flex-col">
             <div className="@container/main flex flex-1 flex-col gap-2">
               <div className="flex flex-col gap-4 py-4 md:gap-6 md:py-6">

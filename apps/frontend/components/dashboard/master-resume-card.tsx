@@ -118,7 +118,7 @@ export function MasterResumeCard() {
                 hover:bg-primary/5
               "
             >
-              <Link href="/master-resume/create">
+              <Link href="/master-resume/edit">
                 <FileEdit className="size-4" />
                 Edit Source
               </Link>

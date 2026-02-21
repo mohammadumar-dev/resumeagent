@@ -1,37 +1,103 @@
-import { FileText, Briefcase, Star, Clock } from "lucide-react";
-import { Card } from "@/components/ui/card";
+"use client";
 
-const stats = [
-  {
-    icon: FileText,
-    value: "24",
-    label: "Resumes Generated",
-    color: "text-primary bg-primary/10",
-  },
-  {
-    icon: Briefcase,
-    value: "8",
-    label: "Active Applications",
-    color: "text-emerald-500 bg-emerald-500/10",
-  },
-  {
-    icon: Star,
-    value: "92%",
-    label: "Avg. Match Score",
-    color: "text-amber-500 bg-amber-500/10",
-  },
-  {
-    icon: Clock,
-    value: "15m",
-    label: "Time Saved / App",
-    color: "text-purple-500 bg-purple-500/10",
-  },
-];
+import { useEffect, useMemo, useState } from "react";
+import { FileText, Target, ShieldCheck, Gauge } from "lucide-react";
+import { Card } from "@/components/ui/card";
+import {
+  dashboardAnalyticsApi,
+  type DashboardAnalyticsOverviewResponse,
+} from "@/lib/api/dashboard-analytics";
+import type { ApiError } from "@/types/auth";
+
+type StatField = keyof DashboardAnalyticsOverviewResponse;
+
+const statConfig: Array<{
+  icon: typeof Gauge;
+  field: StatField;
+  label: string;
+  color: string;
+}> = [
+    {
+      icon: Gauge,
+      field: "monthlyResumeLimit",
+      label: "Monthly Resume Limit",
+      color: "text-primary bg-primary/10",
+    },
+    {
+      icon: FileText,
+      field: "totalGeneratedResumes",
+      label: "Total Generated Resumes",
+      color: "text-emerald-500 bg-emerald-500/10",
+    },
+    {
+      icon: Target,
+      field: "uniqueRolesTargeted",
+      label: "Unique Roles Targeted",
+      color: "text-amber-500 bg-amber-500/10",
+    },
+    {
+      icon: ShieldCheck,
+      field: "aiSuccessRate",
+      label: "AI Success Rate",
+      color: "text-purple-500 bg-purple-500/10",
+    },
+  ];
+
+function formatStatValue(field: StatField, value: number): string {
+  if (field === "aiSuccessRate") {
+    return `${value}%`;
+  }
+
+  if (field === "monthlyResumeLimit") {
+    // show current usage against the default cap.
+    return `${value} / 5`;
+  }
+
+  return String(value);
+}
 
 export function AnalyticsOverview() {
+  const [overview, setOverview] = useState<DashboardAnalyticsOverviewResponse | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let isMounted = true;
+
+    const loadOverview = async () => {
+      try {
+        const response = await dashboardAnalyticsApi.overview();
+        if (!isMounted) return;
+        setOverview(response);
+        setError(null);
+      } catch (err) {
+        if (!isMounted) return;
+        const message =
+          (err as ApiError)?.message || "Failed to load analytics overview.";
+        setError(message);
+      }
+    };
+
+    loadOverview();
+
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
+  const stats = useMemo(
+    () =>
+      statConfig.map((stat) => ({
+        ...stat,
+        value:
+          overview === null
+            ? "--"
+            : formatStatValue(stat.field, overview[stat.field]),
+      })),
+    [overview],
+  );
+
   return (
     <section className="relative mt-10 border-t pt-10">
-
       {/* Ambient glow */}
       <div
         aria-hidden
@@ -47,13 +113,15 @@ export function AnalyticsOverview() {
       </div>
 
       {/* Responsive Grid */}
-      <div className="
+      <div
+        className="
         grid gap-4
         grid-cols-1
         sm:grid-cols-2
         md:grid-cols-2
         lg:grid-cols-4
-      ">
+      "
+      >
         {stats.map((stat, index) => {
           const Icon = stat.icon;
 
@@ -90,7 +158,6 @@ export function AnalyticsOverview() {
               />
 
               <div className="relative flex items-center gap-4 p-5">
-
                 {/* Icon capsule */}
                 <div
                   className={`
@@ -113,11 +180,12 @@ export function AnalyticsOverview() {
                   </p>
                 </div>
               </div>
-
             </Card>
           );
         })}
       </div>
+
+      {error && <p className="mt-3 text-xs text-destructive">{error}</p>}
     </section>
   );
 }

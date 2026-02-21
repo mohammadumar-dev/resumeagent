@@ -1,49 +1,127 @@
-import { Download, Edit, Eye, Lightbulb } from "lucide-react";
-import { Button } from "@/components/ui/button";
+"use client";
+
+import { useEffect, useMemo, useState } from "react";
+import { Lightbulb } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import Link from "next/link";
+import { recentActivity, type AcivityListItem } from "@/lib/api/recent-activity";
+import type { ApiError } from "@/types/auth";
 
-const activities = [
-  {
-    id: 1,
-    title: "Product Manager",
-    company: "Stripe",
-    status: "ATS-Optimized",
-    statusColor: "emerald",
-    time: "2 hours ago",
-    actions: ["download", "edit"],
-  },
-  {
-    id: 2,
-    title: "Senior UX Designer",
-    company: "Airbnb",
-    status: "Draft",
-    statusColor: "amber",
-    time: "Yesterday",
-    actions: ["edit"],
-  },
-  {
-    id: 3,
-    title: "Marketing Lead",
-    company: "Spotify",
-    status: "Needs Review",
-    statusColor: "red",
-    time: "3 days ago",
-    actions: ["view"],
-  },
-];
-
-const statusStyles = {
-  emerald:
-    "bg-emerald-500/10 text-emerald-500 border-emerald-500/20",
-  amber:
-    "bg-amber-500/10 text-amber-500 border-amber-500/20",
-  red:
-    "bg-red-500/10 text-red-500 border-red-500/20",
+const statusStyles: Record<"ACTIVE" | "ARCHIVED", string> = {
+  ACTIVE: "bg-emerald-500/10 text-emerald-500 border-emerald-500/20",
+  ARCHIVED: "bg-slate-500/10 text-slate-500 border-slate-500/20",
 };
 
 export function RecentActivity() {
+  const [activities, setActivities] = useState<AcivityListItem[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let isMounted = true;
+
+    const loadRecentActivity = async () => {
+      try {
+        setIsLoading(true);
+        const response = await recentActivity.view({ page: 0, size: 20 });
+        if (!isMounted) return;
+
+        const filtered = response.items
+          .filter((item) => item.status === "ACTIVE" || item.status === "ARCHIVED")
+          .slice(0, 3);
+
+        setActivities(filtered);
+        setError(null);
+      } catch (err) {
+        if (!isMounted) return;
+        const message = (err as ApiError)?.message || "Failed to load recent activity.";
+        setError(message);
+      } finally {
+        if (isMounted) {
+          setIsLoading(false);
+        }
+      }
+    };
+
+    loadRecentActivity();
+
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
+  const activityContent = useMemo(() => {
+    if (isLoading) {
+      return <p className="p-5 text-sm text-muted-foreground">Loading recent activity...</p>;
+    }
+
+    if (error) {
+      return <p className="p-5 text-sm text-destructive">{error}</p>;
+    }
+
+    if (activities.length === 0) {
+      return (
+        <p className="p-5 text-sm text-muted-foreground">
+          No Active or Archived activity found.
+        </p>
+      );
+    }
+
+    return activities.map((activity, index) => {
+      const status = activity.status === "ACTIVE" ? "ACTIVE" : "ARCHIVED";
+      const shouldShowCompany = activity.title !== "Master resume";
+
+      return (
+        <div
+          key={`${activity.activity}-${activity.time}-${index}`}
+          className="
+            group
+            relative
+            flex flex-col gap-4
+            p-5
+            transition-all duration-300
+            hover:bg-muted/40
+          "
+        >
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+            <div className="flex flex-col gap-1">
+              <h4 className="text-sm font-semibold tracking-tight text-foreground">
+                {activity.title ?? "Untitled Role"}
+              </h4>
+              {shouldShowCompany && (
+                <p className="text-xs font-medium text-muted-foreground">
+                  {activity.company ?? "Unknown Company"}
+                </p>
+              )}
+            </div>
+
+            <Badge
+              variant="outline"
+              className={`
+                w-fit
+                rounded-full
+                px-3 py-1
+                text-[11px]
+                font-medium
+                backdrop-blur-sm
+                border
+                ${statusStyles[status]}
+              `}
+            >
+              {status}
+            </Badge>
+          </div>
+
+          <div className="flex items-center justify-between">
+            <span className="text-[11px] text-muted-foreground">{activity.time}</span>
+            <span className="text-[11px] text-muted-foreground">{activity.activity}</span>
+          </div>
+        </div>
+      );
+    });
+  }, [activities, error, isLoading]);
+
   return (
     <div className="flex flex-col gap-8">
 
@@ -53,7 +131,7 @@ export function RecentActivity() {
           Recent Activity
         </h3>
         <Link
-          href="/dashboard/activity"
+          href="/activity"
           className="text-sm font-medium text-primary hover:opacity-80 transition-opacity"
         >
           View All
@@ -71,111 +149,7 @@ export function RecentActivity() {
       ">
 
         <div className="divide-y">
-
-          {activities.map((activity) => (
-            <div
-              key={activity.id}
-              className="
-                group
-                relative
-                flex flex-col gap-4
-                p-5
-                transition-all duration-300
-                hover:bg-muted/40
-              "
-            >
-
-              {/* Top Section */}
-              <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-
-                <div className="flex flex-col gap-1">
-                  <h4 className="text-sm font-semibold tracking-tight text-foreground">
-                    {activity.title}
-                  </h4>
-                  <p className="text-xs font-medium text-muted-foreground">
-                    {activity.company}
-                  </p>
-                </div>
-
-                <Badge
-                  variant="outline"
-                  className={`
-                    w-fit
-                    rounded-full
-                    px-3 py-1
-                    text-[11px]
-                    font-medium
-                    backdrop-blur-sm
-                    border
-                    ${statusStyles[activity.statusColor as keyof typeof statusStyles]}
-                  `}
-                >
-                  {activity.status}
-                </Badge>
-              </div>
-
-              {/* Bottom Section */}
-              <div className="flex items-center justify-between">
-
-                <span className="text-[11px] text-muted-foreground">
-                  {activity.time}
-                </span>
-
-                <div className="flex items-center gap-2">
-
-                  {activity.actions.includes("download") && (
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="
-                        size-8 rounded-full
-                        text-muted-foreground
-                        hover:bg-primary/10
-                        hover:text-primary
-                        transition-colors
-                      "
-                    >
-                      <Download className="size-4" />
-                    </Button>
-                  )}
-
-                  {activity.actions.includes("edit") && (
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="
-                        size-8 rounded-full
-                        text-muted-foreground
-                        hover:bg-primary/10
-                        hover:text-primary
-                        transition-colors
-                      "
-                    >
-                      <Edit className="size-4" />
-                    </Button>
-                  )}
-
-                  {activity.actions.includes("view") && (
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="
-                        size-8 rounded-full
-                        text-muted-foreground
-                        hover:bg-primary/10
-                        hover:text-primary
-                        transition-colors
-                      "
-                    >
-                      <Eye className="size-4" />
-                    </Button>
-                  )}
-
-                </div>
-              </div>
-
-            </div>
-          ))}
+          {activityContent}
         </div>
       </Card>
 
@@ -206,7 +180,7 @@ export function RecentActivity() {
               Pro Tip
             </h4>
             <p className="text-xs leading-relaxed text-muted-foreground">
-              Resumes with quantifiable metrics (e.g., "Increased sales by 20%")
+              Resumes with quantifiable metrics (e.g., &quot;Increased sales by 20%&quot;)
               are 40% more likely to pass ATS scans. Update your Master Profile
               to include measurable achievements.
             </p>

@@ -1,5 +1,5 @@
 import { apiClient } from '@/lib/api/client';
-import type { MasterResumeViewResponse } from '@/types/master-resume';
+import type { MasterResumeCommonResponse, MasterResumeViewResponse, CreateAndUpdateMasterResumeRequest } from '@/types/master-resume';
 import type { ResumeGenerateResponse, ResumeListAllResponse } from '@/types/resume';
 
 export const resumeApi = {
@@ -47,4 +47,15 @@ export const resumeApi = {
   downloadBlue: async (resumeId: string): Promise<Blob> => {
     return apiClient.blob(`/api/resume/${resumeId}/blue/download`);
   },
+
+  edit: async (
+    id: string,
+    data: CreateAndUpdateMasterResumeRequest,
+  ): Promise<MasterResumeCommonResponse> => {
+    return apiClient.put<MasterResumeCommonResponse>(`/api/resume/update/${id}`, data);
+  },
+
+  remove: async (id: any): Promise<MasterResumeCommonResponse> => {
+    return apiClient.delete<MasterResumeCommonResponse>(`/api/resume/delete/${id}`);
+  },  
 };
