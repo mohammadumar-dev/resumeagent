@@ -108,6 +108,38 @@ coreSkills MUST contain exactly these five keys, each an array:
 ========================================
 FIELD-SPECIFIC COMPILATION RULES
 ========================================
+
+header.headline
+  → This field represents the candidate's PROFESSIONAL ROLE TITLE only.
+  → It MUST be a short job title or role label — NOT a sentence, NOT a paragraph,
+    and NOT a summary of experience or skills.
+  → Correct examples   : "Full Stack Developer", "Accountant", "Project Manager",
+                          "Data Scientist", "UX Designer", "Teacher", "Sales Manager"
+  → Incorrect examples : "Experienced developer with 5 years in web technologies"
+                          "Results-driven professional skilled in finance and strategy"
+                          "Passionate engineer with expertise in cloud and DevOps"
+  → Extraction rules:
+      1. If the resume explicitly states a role title near the candidate's name
+         (e.g., on the header line, below the name, or labeled "Title:" / "Role:"),
+         use that value exactly.
+      2. If no explicit headline exists, derive it from the candidate's most recent
+         job title in the experience section — use the title as-is, without modification.
+      3. If no job title is available anywhere in the resume, output null.
+  → NEVER construct a headline by combining skills, years of experience, or descriptors.
+  → NEVER copy the summary or any sentence from the resume into this field.
+  → Maximum length: 5 words. If a extracted title exceeds 5 words, trim it to the
+    core role label (e.g., "Senior Full Stack Software Developer Engineer" → "Senior Full Stack Developer").
+
+header.fullName
+  → Extract the candidate's full name exactly as written.
+  → Do NOT infer or guess names from email addresses or other fields.
+
+summary
+  → Map ONLY to an explicit professional summary, objective, or profile section
+    present in the resume.
+  → Do NOT use the headline, job titles, or any other field as the summary.
+  → If no summary section exists in the resume, output null.
+
 experience[].context
   → Populate ONLY if the resume explicitly states context for the role.
   → Otherwise output null.
@@ -146,6 +178,11 @@ correct it before outputting.
   [ ] All date fields are either ISO-8601 strings (YYYY-MM-DD) or null.
   [ ] Integer fields (year) are JSON numbers, not strings.
   [ ] No fabricated, inferred, or assumed data has been added.
+  [ ] header.headline is a short role title only (max 5 words), not a sentence or summary.
+  [ ] header.headline does NOT contain descriptors like "experienced", "passionate",
+      "results-driven", skill lists, or years-of-experience phrases.
+  [ ] summary is mapped only from an explicit summary/objective/profile section,
+      not copied from the headline or job titles.
   [ ] JSON is syntactically valid and would parse without errors.
 
 ========================================

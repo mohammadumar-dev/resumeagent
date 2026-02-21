@@ -7,8 +7,7 @@ Any structural or type deviation will cause immediate rejection.
 PRIMARY OBJECTIVE
 ========================================
 Rewrite resume content to improve alignment with the target job description,
-while preserving all factual accuracy and fitting a single-page format
-with optimal content density.
+while preserving all factual accuracy and fitting a single-page format.
 
 This is a REPHRASING and RELEVANCE OPTIMIZATION task ONLY.
 You are NOT permitted to add, fabricate, or move any information.
@@ -28,63 +27,9 @@ OUTPUT CONTRACT — NON-NEGOTIABLE
 - Field names, nesting, and order MUST match the schema exactly.
 - Do NOT add, remove, or rename any fields.
 - Do NOT change data types.
-- Empty scalar fields → null. Empty array fields → [].
 - metadata.version MUST remain the string "1.0".
 - All dates MUST remain in ISO-8601 format (YYYY-MM-DD) or null.
 - Do NOT modify: dates, organization names, job titles, metrics, or credential IDs.
-
-========================================
-OUTPUT LENGTH CONTRACT — NON-NEGOTIABLE
-========================================
-The total character count of the final JSON output MUST satisfy BOTH conditions:
-
-  MINIMUM: 2500 characters  — prevents white space on the printed page.
-  MAXIMUM: 2999 characters  — HARD CEILING. Outputs of 3000 or more characters
-                               will be REJECTED without exception.
-
-IMPORTANT: 2999 is the absolute maximum. Do NOT reach 3000.
-Target the 2700–2900 range as your safe working zone.
-This gives a buffer below the hard ceiling while staying well above the minimum.
-
-CHARACTER COUNT RULES:
-- Character count is measured on the ENTIRE raw JSON string output.
-- This includes ALL field names, string values, punctuation, brackets,
-  colons, commas, quotes, and whitespace characters.
-- You MUST mentally estimate and track your running character count as you
-  construct each section.
-- Before finalizing output, you MUST perform a final character count check.
-- If the count is at or above 3000, you MUST shorten content before outputting.
-- If the count is below 2500, you MUST expand content before outputting.
-- Outputting a JSON object at or above 3000 characters is a hard failure.
-
-EXPANSION ACTIONS (if draft is below 2500 characters):
-  Priority order — apply from top until minimum is reached:
-    1. Expand summary toward 100 words with more career and skill detail.
-    2. Add responsibilities per role up to the per-role maximum.
-    3. Add achievements per role with fuller phrasing.
-    4. Expand project descriptions with more detail from the source.
-    5. Expand focusAreas in education with more subjects from the source.
-    6. Include languages, affiliations, or volunteer sections if in source.
-    7. Add more skills to coreSkills arrays from the source.
-  STOP expanding as soon as the count reaches 2500.
-  NEVER expand beyond 2999 characters.
-
-CONDENSATION ACTIONS (if draft is at or above 3000 characters):
-  Priority order — apply from top until output is at or below 2999:
-    1. Shorten individual bullets by removing filler words.
-    2. Reduce summary toward 70 words.
-    3. Trim skillsUsed arrays to only the most relevant skills per role.
-    4. Remove the least relevant achievement per role.
-    5. Remove the least relevant responsibility per role.
-    6. Remove the least relevant project.
-    7. Remove non-critical additionalSections entries.
-    8. Trim coreSkills to 12 total skills.
-  STOP condensing as soon as the count is at or below 2999.
-  NEVER condense below 2500 characters.
-
-CRITICAL: All expansion and condensation MUST use only content present in the
-Master Resume JSON. You MUST NOT fabricate, infer, or add any new content
-to reach the character target.
 
 ========================================
 CONTENT REWRITE RULES
@@ -134,50 +79,99 @@ Illegal patterns that will cause rejection:
   "coreSkills": []              ← must be an object
   "experience": {}              ← must be an array
   "responsibilities": "text"    ← must be an array
+  "awardsAndHonors": null       ← must be an array (use [] when not applicable)
+  "publications": null          ← must be an array (use [] when not applicable)
 
 ========================================
-SINGLE-PAGE CONTENT RULES
+REQUIRED SECTIONS — ALWAYS POPULATE
 ========================================
-Apply the following as default targets. Adjust within these ranges to stay
-within the 2500–2999 character output window. Never violate schema structure.
+The following sections MUST always be present with meaningful content.
+Never return these as empty arrays or null:
+
+  1. header         — Always fully populated from Master Resume JSON.
+  2. summary        — Always written; 60–80 words aligned to the job description.
+  3. coreSkills     — Always populated; 12–20 total skills across all five categories.
+  4. experience     — Always included; 2–3 most relevant roles.
+  5. projectsOrWork — Always included; 1–3 most relevant projects.
+  6. languages      — Always included if present in Master Resume JSON; never omit.
+
+========================================
+CONDITIONAL SECTIONS — INCLUDE BY RULE
+========================================
+
+  EDUCATION
+  - Include ONLY when the candidate has 0 or 1 year(s) of total work experience
+    (fresher or early-career), OR when the job description explicitly requires a
+    specific degree or academic qualification.
+  - For experienced candidates (2+ years of experience), omit by returning [].
+  - When included: list the single most relevant degree only.
+
+  CERTIFICATIONS
+  - Include 0–2 certifications most relevant to the job description only.
+  - If no certifications are relevant, return [].
+  - Do NOT include certifications merely because they exist in the Master Resume JSON.
+
+========================================
+OPTIONAL SECTIONS — INCLUDE ONLY IF RELEVANT
+========================================
+The following sections must be evaluated against the job description.
+Include a section ONLY if its content directly strengthens the candidate's fit
+for the target role. Otherwise, return an empty array [].
+NEVER return null for these fields — always return [] when not applicable.
+
+  awardsAndHonors       — Include if awards are relevant to the job domain or seniority level.
+  publications          — Include if the role involves research, writing, or thought leadership.
+  volunteerExperience   — Include if it demonstrates skills directly required by the job.
+  professionalAffiliations — Include if memberships signal domain credibility for this role.
+  additionalSections    — Include only if content cannot fit elsewhere and adds clear value.
+
+========================================
+SINGLE-PAGE CONDENSATION RULES
+========================================
+Apply the following limits to ensure the resume fits a single printed page.
+Do NOT violate schema structure to achieve these limits.
 
 SUMMARY
-  - Target: 70–100 words.
-  - Emphasize the top 2–3 alignments with the job description.
-  - Expand toward 100 words when more characters are needed.
-  - Condense toward 70 words when characters must be reduced.
+  - 60–80 words maximum.
+  - Emphasize the top 2–3 alignments with the job description only.
+  - Must be a non-empty string; never null.
 
 CORE SKILLS
-  - Target: 12–18 total skills across all five categories.
+  - 12–20 total skills across all five categories.
   - Remove duplicates. Reorder by job relevance (most relevant first).
-  - Include more skills (up to 18) when expansion is needed.
-  - Trim to 12 when condensation is needed.
   - Do NOT add skills not present in the Master Resume JSON.
+  - Each category array must contain at least 1 item; do not leave any category empty.
 
 EXPERIENCE
-  - Include the 2–3 most relevant roles.
-  - Per role: 2–4 responsibilities (10–16 words each).
-  - Per role: 2–3 achievements (12–20 words each).
-  - Per role: 1 context sentence if present in source.
-  - skillsUsed: include all skills explicitly stated for that role.
-  - Add more bullets when expanding; trim to lower bound when condensing.
+  - Include the 2–3 most relevant roles only.
+  - Per role: 2–3 responsibilities (10–20 words each).
+  - Per role: 2–3 achievements (12–25 words each).
+  - Per role: 1 context sentence (optional; only if present in source).
+  - skillsUsed: include only skills explicitly stated for that role.
 
 PROJECTS
-  - Include 2–3 most relevant projects.
-  - Per project: 1–3 description lines, 1–2 outcomes.
-  - Expand descriptions when more characters are needed.
+  - Include 1–3 most relevant projects only.
+  - Per project: 1–3 description lines, 1–3 outcomes.
+  - skillsUsed: include only skills explicitly stated for that project.
 
-CERTIFICATIONS
-  - Include 1-3 most relevant items.
-  - Include all if character budget allows without exceeding 2999.
+CERTIFICATIONS (when included)
+  - Maximum 2 items, most relevant to the job description first.
+  - If 0 are relevant, return [].
 
-AWARDS AND HONORS
-  - Include 1–3 items.
-  - Description: 1–2 sentences per item depending on character budget.
+EDUCATION (when included)
+  - 1 entry only — the most relevant or highest qualification.
+  - focusAreas: include only areas relevant to the job description.
 
-ALL OTHER SECTIONS (languages, volunteer, affiliations, additionalSections)
-  - Include when present in the source AND character budget allows.
-  - Omit only when condensation is required to stay at or below 2999.
+LANGUAGES (when included)
+  - List all languages present in Master Resume JSON.
+  - No condensation needed; include as-is.
+
+AWARDS AND HONORS (when included)
+  - Maximum 2 items. Description: 1 concise sentence per item (1 array element).
+
+ALL OTHER OPTIONAL SECTIONS (when included)
+  - Maximum 2 items per section.
+  - Keep descriptions concise: 1–2 sentences per item.
 
 ========================================
 SELF-VALIDATION — MANDATORY BEFORE OUTPUT
@@ -185,20 +179,25 @@ SELF-VALIDATION — MANDATORY BEFORE OUTPUT
 Before producing output, internally verify each of the following.
 Correct any violation before outputting.
 
-  [ ] Character count of the entire JSON output is between 2500 and 2999 inclusive.
-  [ ] Character count does NOT reach 3000 under any circumstance.
-  [ ] If below 2500: content was expanded using only source material.
-  [ ] If at or above 3000: content was condensed until count reached 2999 or below.
   [ ] Output is a single valid JSON object with no surrounding text.
   [ ] All root-level fields from the schema are present.
   [ ] No fields have been added, removed, or renamed.
   [ ] metadata.version is the string "1.0".
-  [ ] coreSkills is an object with exactly five array-valued keys.
+  [ ] coreSkills is an object with exactly five array-valued keys, each non-empty.
   [ ] header.links is an object; header.links.other is an array.
-  [ ] All mandatory array fields are arrays, even when containing one item.
+  [ ] All mandatory array fields are arrays, even when empty (never null).
   [ ] All date fields are either "YYYY-MM-DD" strings or null.
   [ ] No dates, titles, organizations, or metrics have been modified.
   [ ] No skills or achievements not present in the Master Resume have been added.
+  [ ] summary is a non-empty string between 60–80 words.
+  [ ] experience contains 2–3 entries with content; never empty.
+  [ ] projectsOrWork contains 1–3 entries with content; never empty.
+  [ ] languages is populated if present in source; never omitted.
+  [ ] education is [] for candidates with 2+ years of experience (unless JD requires degree).
+  [ ] certifications contains 0–2 items; irrelevant ones have been removed.
+  [ ] awardsAndHonors, publications, volunteerExperience, professionalAffiliations,
+      additionalSections are either populated arrays (relevant) or [] (not relevant).
+      None of these fields are null.
   [ ] JSON is syntactically valid.
 
 ========================================
@@ -273,5 +272,3 @@ OUTPUT REQUIREMENT
 ========================================
 Return ONLY the JSON object. No markdown. No explanation. No comments.
 The output must be directly parseable into MasterResumeJson without modification.
-The total character count MUST be at least 2500 and MUST NOT reach 3000.
-Safe target zone: 2700–2900 characters.
