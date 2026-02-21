@@ -2,6 +2,7 @@ package com.resumeagent.service;
 
 import com.resumeagent.dto.dashboard.AnalyticsChartInputOutputTokensListResponse;
 import com.resumeagent.dto.dashboard.AnalyticsChartInputOutputTokensResponse;
+import com.resumeagent.dto.dashboard.AnalyticsAIExecutionStatusResponse;
 import com.resumeagent.dto.dashboard.AnalyticsAverageAgentExecutionTimeResponse;
 import com.resumeagent.dto.dashboard.AnalyticsMetricsStatsResponse;
 import com.resumeagent.dto.dashboard.AnalyticsOverviewStatsResponse;
@@ -156,6 +157,7 @@ public class DashboardService {
         int jobDescriptionAnalyzer = 0;
         int matching = 0;
         int resumeRewriter = 0;
+        int atsOptimizer = 0;
 
         for (ResumeAgentLogRepository.AgentExecutionTimeAverage row : averages) {
             String agentName = row.getAgentName();
@@ -170,6 +172,8 @@ public class DashboardService {
                 matching = avgRounded;
             } else if ("ResumeRewriteAgent".equals(agentName)) {
                 resumeRewriter = avgRounded;
+            } else if ("ATSOptimizationAgent".equals(agentName)) {
+                atsOptimizer = avgRounded;
             }
         }
 
@@ -178,6 +182,31 @@ public class DashboardService {
                 .jobDescriptionAnalyzer(jobDescriptionAnalyzer)
                 .matching(matching)
                 .resumeRewriter(resumeRewriter)
+                .atsOptimizer(atsOptimizer)
+                .build();
+    }
+
+    @Transactional(readOnly = true)
+    public AnalyticsAIExecutionStatusResponse getAnalyticsAIExecutionStatus(String email) {
+        User user = userRepository.findByEmail(email)
+                .orElseThrow(() -> new IllegalStateException("User not found"));
+
+        UUID userId = user.getId();
+
+        long successLogs = resumeAgentLogRepository.countByUserIdAndStatus(
+                userId, AgentExecutionStatus.SUCCESS
+        );
+        long failureLogs = resumeAgentLogRepository.countByUserIdAndStatus(
+                userId, AgentExecutionStatus.FAILURE
+        );
+        long partialLogs = resumeAgentLogRepository.countByUserIdAndStatus(
+                userId, AgentExecutionStatus.PARTIAL
+        );
+
+        return AnalyticsAIExecutionStatusResponse.builder()
+                .successCount(Math.toIntExact(successLogs))
+                .failureCount(Math.toIntExact(failureLogs))
+                .partialCount(Math.toIntExact(partialLogs))
                 .build();
     }
 }

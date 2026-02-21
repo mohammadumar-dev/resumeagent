@@ -1,6 +1,7 @@
 package com.resumeagent.controller;
 
 import com.resumeagent.dto.dashboard.AnalyticsAverageAgentExecutionTimeResponse;
+import com.resumeagent.dto.dashboard.AnalyticsAIExecutionStatusResponse;
 import com.resumeagent.dto.dashboard.AnalyticsChartInputOutputTokensListResponse;
 import com.resumeagent.dto.dashboard.AnalyticsMetricsStatsResponse;
 import com.resumeagent.dto.dashboard.AnalyticsOverviewStatsResponse;
@@ -46,5 +47,12 @@ public class DashboardController {
     public AnalyticsAverageAgentExecutionTimeResponse getAverageAgentExecutionTime(Authentication authentication) {
         String email = authentication.getName();
         return dashboardService.getAnalyticsAverageAgentExecutionTime(email);
+    }
+
+    @GetMapping(value = "/analytics/ai-execution-status")
+    @ResponseStatus(HttpStatus.OK)
+    public AnalyticsAIExecutionStatusResponse getAIExecutionStatus(Authentication authentication) {
+        String email = authentication.getName();
+        return dashboardService.getAnalyticsAIExecutionStatus(email);
     }
 }
