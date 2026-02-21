@@ -1,16 +1,41 @@
+"use client";
+
 import { Sparkles, PlusCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import Link from "next/link";
+import { useEffect, useMemo, useState } from "react";
+import { useAuth } from "@/contexts/AuthContext";
 
 export function WelcomeHero() {
+  const { user } = useAuth();
+  const [now, setNow] = useState(() => new Date());
+
+  useEffect(() => {
+    const timer = window.setInterval(() => {
+      setNow(new Date());
+    }, 60_000);
+
+    return () => window.clearInterval(timer);
+  }, []);
+
+  const greeting = useMemo(() => {
+    const hour = now.getHours();
+
+    if (hour >= 5 && hour < 12) return "Good morning";
+    if (hour >= 12 && hour < 21) return "Good evening";
+    return "Good night";
+  }, [now]);
+
+  const userName = user?.fullName?.trim() || "there";
+
   return (
     <section className="flex flex-col gap-8">
 
       {/* Greeting */}
       <div className="space-y-2">
         <h1 className="text-3xl font-bold tracking-tight sm:text-4xl">
-          Good morning, Alex.
+          {greeting}, {userName}.
         </h1>
         <p className="text-base text-muted-foreground sm:text-lg">
           Ready to tailor your next application?

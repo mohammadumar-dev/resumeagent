@@ -3,17 +3,11 @@
 import * as React from "react";
 import {
   IconChartBar,
-  IconFileText,
-  IconFilePlus,
   IconFileTextAi,
-  IconHelp,
   IconLayout2,
-  IconNotification,
   IconSettings,
-  IconFileCertificate,
-  IconFileTextFilled,
-  IconFileCheckFilled,
   IconFileDatabase,
+  IconHistory,
 } from "@tabler/icons-react";
 
 import { NavMain } from "@/components/nav-main";
@@ -49,13 +43,13 @@ const data = {
     },
     {
       title: "Analytics",
-      url: "#",
+      url: "/analytics",
       icon: IconChartBar,
     },
     {
-      title: "Notifications",
-      url: "/notifications",
-      icon: IconNotification,
+      title: "Activity",
+      url: "/activity",
+      icon: IconHistory,
     },
   ],
   navSecondary: [
@@ -63,12 +57,7 @@ const data = {
       title: "Settings",
       url: "/settings",
       icon: IconSettings,
-    },
-    {
-      title: "Get Help",
-      url: "/help",
-      icon: IconHelp,
-    },
+    }
   ],
 };
 

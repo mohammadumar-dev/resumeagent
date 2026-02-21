@@ -1,5 +1,5 @@
 import { AppSidebar } from "@/components/app-sidebar";
-import { SiteHeader } from "@/components/dashboard/site-header";
+import { SiteHeader } from "@/components/site-header";
 import {
   SidebarInset,
   SidebarProvider,
@@ -12,7 +12,7 @@ import { WelcomeHero } from "@/components/dashboard/welcome-hero";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { EmailVerificationBanner } from "@/components/EmailVerificationBanner";
 
-export default function Page() {
+export default function DashboardPage() {
   return (
     <ProtectedRoute>
       <SidebarProvider
@@ -25,7 +25,7 @@ export default function Page() {
       >
         <AppSidebar variant="floating" />
         <SidebarInset>
-          <SiteHeader />
+          <SiteHeader title="Dashboard" />
           <EmailVerificationBanner />
           <div className="flex flex-1 flex-col">
             <div className="@container/main flex flex-1 flex-col gap-2">
