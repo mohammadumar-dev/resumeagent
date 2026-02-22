@@ -8,6 +8,7 @@ import {
   IconSettings,
   IconFileDatabase,
   IconHistory,
+  IconUsers,
 } from "@tabler/icons-react";
 
 import { NavMain } from "@/components/nav-main";
@@ -64,6 +65,18 @@ const data = {
 export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
   const { user } = useAuth();
 
+  const navMainItems = React.useMemo(() => {
+    const items = [...data.navMain];
+    if (user?.role === "ADMIN") {
+      items.push({
+        title: "Users",
+        url: "/users",
+        icon: IconUsers,
+      });
+    }
+    return items;
+  }, [user?.role]);
+
   // Fallback user data if not authenticated (shouldn't happen in protected routes)
   const userData = user
     ? {
@@ -95,7 +108,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
         </SidebarMenu>
       </SidebarHeader>
       <SidebarContent>
-        <NavMain items={data.navMain} />
+        <NavMain items={navMainItems} />
         <NavSecondary items={data.navSecondary} className="mt-auto" />
       </SidebarContent>
       <SidebarFooter>
