@@ -2,6 +2,43 @@ import { ApiError } from '@/types/auth';
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080';
 
+function defaultMessageForStatus(status: number, statusText?: string): string {
+    if (statusText && statusText.trim()) return statusText;
+    if (status === 401) return "Unauthorized";
+    if (status === 403) return "Forbidden";
+    if (status === 404) return "Not found";
+    if (status >= 500) return "Internal server error";
+    return `Request failed (${status})`;
+}
+
+function extractApiError(payload: unknown, status: number, statusText?: string): ApiError {
+    const body = (payload ?? {}) as Record<string, unknown>;
+
+    const message =
+        (typeof body.message === "string" && body.message.trim()) ||
+        (typeof body.error === "string" && body.error.trim()) ||
+        (typeof body.detail === "string" && body.detail.trim()) ||
+        defaultMessageForStatus(status, statusText);
+
+    const errors =
+        body.errors && typeof body.errors === "object" && !Array.isArray(body.errors)
+            ? (body.errors as Record<string, string[]>)
+            : undefined;
+
+    return {
+        message,
+        status,
+        errors,
+    };
+}
+
+function shouldLogPayload(payload: unknown): boolean {
+    if (!payload) return false;
+    if (typeof payload !== "object") return true;
+    if (Array.isArray(payload)) return payload.length > 0;
+    return Object.keys(payload as Record<string, unknown>).length > 0;
+}
+
 export class ApiClient {
     private baseUrl: string;
 
@@ -14,9 +51,11 @@ export class ApiClient {
      */
     async request<T>(
         endpoint: string,
-        options: RequestInit = {}
+        options: (RequestInit & { silent?: boolean }) = {}
     ): Promise<T> {
         const url = `${this.baseUrl}${endpoint}`;
+
+        const { silent, ...requestOptions } = options;
 
         const defaultHeaders: HeadersInit = {
             'Accept': 'application/json',
@@ -24,10 +63,10 @@ export class ApiClient {
 
 
         const config: RequestInit = {
-            ...options,
+            ...requestOptions,
             headers: {
                 ...defaultHeaders,
-                ...options.headers,
+                ...requestOptions.headers,
             },
             credentials: 'include', // Include cookies for authentication
         };
@@ -41,22 +80,29 @@ export class ApiClient {
 
             if (!response.ok) {
                 // Parse error response
-                let errorData: ApiError;
+                let apiError: ApiError;
+                const log = response.status >= 500 ? console.error : console.warn;
 
                 if (isJson) {
-                    errorData = await response.json();
+                    const json = await response.json();
+                    apiError = extractApiError(json, response.status, response.statusText);
+                    if (!silent) {
+                        if (shouldLogPayload(json)) {
+                            log(`[API ${response.status}] ${endpoint}`, json);
+                        } else {
+                            log(`[API ${response.status}] ${endpoint} ${apiError.message}`);
+                        }
+                    }
                 } else {
                     const text = await response.text();
-                    errorData = {
-                        message: text || response.statusText || 'An error occurred',
+                    apiError = {
+                        message: text || defaultMessageForStatus(response.status, response.statusText),
                         status: response.status,
-                    };
+                    } as ApiError;
+                    if (!silent) log(`[API ${response.status}] ${endpoint} ${apiError.message}`, text);
                 }
 
-                throw {
-                    ...errorData,
-                    status: response.status,
-                } as ApiError;
+                throw apiError;
             }
 
             // Parse successful response
@@ -155,27 +201,39 @@ export class ApiClient {
         });
     }
 
-    async blob(endpoint: string, options?: RequestInit): Promise<Blob> {
+    async blob(endpoint: string, options?: (RequestInit & { silent?: boolean })): Promise<Blob> {
         const url = `${this.baseUrl}${endpoint}`;
+        const { silent, ...requestOptions } = options ?? {};
 
         const response = await fetch(url, {
-            ...options,
-            method: options?.method ?? "GET",
+            ...requestOptions,
+            method: requestOptions?.method ?? "GET",
             credentials: "include",
         });
 
         if (!response.ok) {
             const contentType = response.headers.get("content-type");
             const isJson = contentType?.includes("application/json");
+            const log = response.status >= 500 ? console.error : console.warn;
 
             if (isJson) {
-                const error = await response.json();
-                throw error;
+                const json = await response.json();
+                const apiError = extractApiError(json, response.status, response.statusText);
+                if (!silent) {
+                    if (shouldLogPayload(json)) {
+                        log(`[API ${response.status}] ${endpoint}`, json);
+                    } else {
+                        log(`[API ${response.status}] ${endpoint} ${apiError.message}`);
+                    }
+                }
+                throw apiError;
             }
 
             const text = await response.text();
+            const message = text || defaultMessageForStatus(response.status, response.statusText);
+            if (!silent) log(`[API ${response.status}] ${endpoint} ${message}`, text);
             throw {
-                message: text || response.statusText,
+                message,
                 status: response.status,
             };
         }

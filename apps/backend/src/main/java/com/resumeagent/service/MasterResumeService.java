@@ -12,6 +12,7 @@ import com.resumeagent.entity.User;
 import com.resumeagent.entity.enums.AgentExecutionStatus;
 import com.resumeagent.entity.model.MasterResumeJson;
 import com.resumeagent.exception.DuplicateResourceException;
+import com.resumeagent.exception.ValueNotFoundException;
 import com.resumeagent.repository.MasterResumeRepository;
 import com.resumeagent.repository.ResumeAgentLogRepository;
 import com.resumeagent.repository.UserRepository;
@@ -156,8 +157,8 @@ public class MasterResumeService {
 
         MasterResume masterResume = masterResumeRepository.findByUser(user)
                 .orElseThrow(() ->
-                        new IllegalStateException(
-                                "Master resume does not exist. Create one before updating."));
+                        new ValueNotFoundException(
+                                "Master resume not found. Create one before updating."));
 
         // Convert DTO → JSON model
         MasterResumeJson resumeJson = convertToModel(request);
@@ -170,7 +171,7 @@ public class MasterResumeService {
             masterResumeRepository.save(masterResume);
         } catch (DataIntegrityViolationException ex) {
             // This handles race conditions if two requests come together
-            throw new DuplicateResourceException("Master resume does not exist. Create one before updating.");
+            throw new ValueNotFoundException("Master resume not found. Create one before updating.");
         }
 
         return CommonResponse.builder()
@@ -188,7 +189,7 @@ public class MasterResumeService {
 
         MasterResume masterResume = masterResumeRepository.findByUserAndActive(user, true)
                 .orElseThrow(() ->
-                        new IllegalStateException("Master resume not found"));
+                        new ValueNotFoundException("Master resume not found"));
 
         return MasterResumeResponse.builder()
                 .resumeJson(masterResume.getResumeJson())
@@ -202,7 +203,7 @@ public class MasterResumeService {
                 .orElseThrow(() -> new IllegalStateException("Authenticated user not found"));
 
         MasterResume masterResume = masterResumeRepository.findByUser(user)
-                .orElseThrow(() -> new IllegalStateException("Master resume not found"));
+                .orElseThrow(() -> new ValueNotFoundException("Master resume not found"));
 
         masterResume.setActive(false);
 

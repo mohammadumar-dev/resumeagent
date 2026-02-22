@@ -55,7 +55,7 @@ export const resumeApi = {
     return apiClient.put<MasterResumeCommonResponse>(`/api/resume/update/${id}`, data);
   },
 
-  remove: async (id: any): Promise<MasterResumeCommonResponse> => {
+  remove: async (id: string): Promise<MasterResumeCommonResponse> => {
     return apiClient.delete<MasterResumeCommonResponse>(`/api/resume/delete/${id}`);
   },  
 };

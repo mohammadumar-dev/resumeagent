@@ -419,8 +419,8 @@ export function EditMasterResumeForm() {
 
     const load = async () => {
       try {
-        const response: MasterResumeViewResponse =
-          await masterResumeApi.view();
+        const response: MasterResumeViewResponse | null =
+          await masterResumeApi.viewOrNull();
         const resume = response?.resumeJson;
         if (!resume || !isActive) {
           return;
