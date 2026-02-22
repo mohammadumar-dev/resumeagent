@@ -1,11 +1,19 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
+import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { useForm } from "react-hook-form";
-import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
+import { z } from "zod";
+import { toast } from "sonner";
+import { CheckCircle2, Loader2, ShieldPlus } from "lucide-react";
+
 import { cn } from "@/lib/utils";
+import { adminApi } from "@/lib/api/admin";
+import type { ApiError } from "@/types/auth";
+
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import {
@@ -16,12 +24,8 @@ import {
   FieldSeparator,
 } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
-import { useAuth } from "@/contexts/AuthContext";
-import { toast } from "sonner";
-import { Loader2, CheckCircle2 } from "lucide-react";
-import type { ApiError } from "@/types/auth";
 
-const signupSchema = z
+const registerAdminSchema = z
   .object({
     fullName: z
       .string()
@@ -55,14 +59,13 @@ const signupSchema = z
     path: ["confirmPassword"],
   });
 
-type SignupFormData = z.infer<typeof signupSchema>;
+type RegisterAdminFormData = z.infer<typeof registerAdminSchema>;
 
-export function SignupForm({
+export function RegisterAdminForm({
   className,
   ...props
 }: React.ComponentProps<"div">) {
   const router = useRouter();
-  const { register: registerUser } = useAuth();
   const [isLoading, setIsLoading] = useState(false);
   const [isSuccess, setIsSuccess] = useState(false);
 
@@ -70,25 +73,21 @@ export function SignupForm({
     register,
     handleSubmit,
     formState: { errors },
-  } = useForm<SignupFormData>({
-    resolver: zodResolver(signupSchema),
+  } = useForm<RegisterAdminFormData>({
+    resolver: zodResolver(registerAdminSchema),
     mode: "onTouched",
     reValidateMode: "onChange",
   });
 
-  const onSubmit = async (data: SignupFormData) => {
+  const onSubmit = async (data: RegisterAdminFormData) => {
     setIsLoading(true);
     try {
-      await registerUser(data);
+      await adminApi.registerAdmin(data);
       setIsSuccess(true);
-      toast.success("Registration successful! Please check your email to verify your account.");
-      // Don't redirect immediately - show success message
-      setTimeout(() => {
-        router.push("/login");
-      }, 3000);
+      toast.success("Admin created. Ask them to verify their email before logging in.");
     } catch (error) {
       const apiError = error as ApiError;
-      toast.error(apiError.message || "Registration failed. Please try again.");
+      toast.error(apiError?.message || "Failed to create admin. Please try again.");
     } finally {
       setIsLoading(false);
     }
@@ -98,7 +97,7 @@ export function SignupForm({
     return (
       <div className={cn("relative flex flex-col gap-8", className)} {...props}>
         <div aria-hidden className="pointer-events-none absolute inset-0 -z-10">
-          <div className="absolute left-1/2 top-[-120px] h-[500px] w-[500px] -translate-x-1/2 rounded-full bg-primary/10 blur-[150px]" />
+          <div className="absolute left-1/2 top-[-120px] h-[520px] w-[520px] -translate-x-1/2 rounded-full bg-destructive/10 blur-[150px]" />
         </div>
 
         <Card className="relative overflow-hidden border bg-card/70 backdrop-blur-xl shadow-[0_30px_80px_-20px_rgba(0,0,0,0.35)]">
@@ -108,16 +107,19 @@ export function SignupForm({
                 <CheckCircle2 className="h-8 w-8 text-green-500" />
               </div>
               <div className="space-y-2">
-                <h1 className="text-2xl font-bold tracking-tight">Check Your Email</h1>
+                <h1 className="text-2xl font-bold tracking-tight">
+                  Admin created
+                </h1>
                 <p className="text-sm text-muted-foreground">
-                  We&apos;ve sent a verification link to your email address. Please click the link to verify your account before logging in.
+                  A verification email was sent. The new admin needs to verify
+                  their email before logging in.
                 </p>
               </div>
-              <Button onClick={() => router.push("/login")} size="lg" className="w-full max-w-sm">
-                Continue to Login
+              <Button onClick={() => router.push("/users")} size="lg" className="w-full max-w-sm">
+                Back to Users
               </Button>
               <Button asChild variant="outline" size="lg" className="w-full max-w-sm">
-                <a href="/resend-verification">Resend verification email</a>
+                <Link href="/dashboard">Go to Dashboard</Link>
               </Button>
             </div>
           </CardContent>
@@ -128,66 +130,60 @@ export function SignupForm({
 
   return (
     <div className={cn("relative flex flex-col gap-8", className)} {...props}>
-      {/* Ambient Glow Background */}
       <div aria-hidden className="pointer-events-none absolute inset-0 -z-10">
-        <div className="absolute left-1/2 top-[-120px] h-[500px] w-[500px] -translate-x-1/2 rounded-full bg-primary/10 blur-[150px]" />
+        <div className="absolute left-1/2 top-[-120px] h-[520px] w-[520px] -translate-x-1/2 rounded-full bg-destructive/10 blur-[150px]" />
       </div>
 
       <Card className="relative overflow-hidden border bg-card/70 backdrop-blur-xl shadow-[0_30px_80px_-20px_rgba(0,0,0,0.35)]">
         <CardContent className="grid p-0 md:grid-cols-2">
-          {/* LEFT: FORM */}
           <form
             onSubmit={handleSubmit(onSubmit)}
             noValidate
             className="flex flex-col justify-center p-8 sm:p-10 md:p-12"
           >
             <FieldGroup className="gap-6">
-              {/* Header */}
               <div className="space-y-2 text-center md:text-left">
                 <h1 className="text-3xl font-bold tracking-tight">
-                  Create your account
+                  Create an admin
                 </h1>
                 <p className="text-sm text-muted-foreground">
-                  Start generating job-specific, ATS-optimized resumes.
+                  Admins can manage users and system settings.
                 </p>
               </div>
 
-              {/* Name */}
               <Field className="space-y-2">
                 <FieldLabel htmlFor="name">Full Name</FieldLabel>
                 <Input
                   id="name"
                   type="text"
-                  placeholder="John Doe"
+                  placeholder="Jane Admin"
                   {...register("fullName")}
                   aria-invalid={Boolean(errors.fullName)}
-                  className="bg-background/70 backdrop-blur-sm transition-all focus-visible:ring-2 focus-visible:ring-primary"
+                  className="bg-background/70 backdrop-blur-sm transition-all focus-visible:ring-2 focus-visible:ring-destructive"
                 />
                 {errors.fullName && (
                   <p className="text-xs text-destructive">{errors.fullName.message}</p>
                 )}
               </Field>
 
-              {/* Email */}
               <Field className="space-y-2">
                 <FieldLabel htmlFor="email">Email Address</FieldLabel>
                 <Input
                   id="email"
                   type="email"
-                  placeholder="you@example.com"
+                  placeholder="admin@example.com"
                   {...register("email")}
                   aria-invalid={Boolean(errors.email)}
-                  className="bg-background/70 backdrop-blur-sm transition-all focus-visible:ring-2 focus-visible:ring-primary"
+                  className="bg-background/70 backdrop-blur-sm transition-all focus-visible:ring-2 focus-visible:ring-destructive"
                 />
                 {errors.email && (
                   <p className="text-xs text-destructive">{errors.email.message}</p>
                 )}
                 <FieldDescription className="text-xs">
-                  Used for verification and important updates.
+                  A verification email will be sent to this address.
                 </FieldDescription>
               </Field>
 
-              {/* Password Section */}
               <div className="grid gap-5 sm:grid-cols-2">
                 <Field className="space-y-2">
                   <FieldLabel htmlFor="password">Password</FieldLabel>
@@ -196,7 +192,7 @@ export function SignupForm({
                     type="password"
                     {...register("password")}
                     aria-invalid={Boolean(errors.password)}
-                    className="bg-background/70 backdrop-blur-sm transition-all focus-visible:ring-2 focus-visible:ring-primary"
+                    className="bg-background/70 backdrop-blur-sm transition-all focus-visible:ring-2 focus-visible:ring-destructive"
                   />
                   {errors.password && (
                     <p className="text-xs text-destructive">{errors.password.message}</p>
@@ -213,7 +209,7 @@ export function SignupForm({
                     type="password"
                     {...register("confirmPassword")}
                     aria-invalid={Boolean(errors.confirmPassword)}
-                    className="bg-background/70 backdrop-blur-sm transition-all focus-visible:ring-2 focus-visible:ring-primary"
+                    className="bg-background/70 backdrop-blur-sm transition-all focus-visible:ring-2 focus-visible:ring-destructive"
                   />
                   {errors.confirmPassword && (
                     <p className="text-xs text-destructive">{errors.confirmPassword.message}</p>
@@ -221,61 +217,51 @@ export function SignupForm({
                 </Field>
               </div>
 
-              {/* Submit */}
               <Field>
                 <Button
                   type="submit"
                   size="lg"
                   disabled={isLoading}
-                  className="w-full shadow-lg shadow-primary/20 transition-all hover:-translate-y-0.5 active:scale-[0.98]"
+                  className="w-full bg-destructive text-white shadow-lg shadow-destructive/20 transition-all hover:-translate-y-0.5 hover:bg-destructive/90 active:scale-[0.98]"
                 >
                   {isLoading ? (
                     <>
                       <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                      Creating account...
+                      Creating admin...
                     </>
                   ) : (
-                    "Create Account"
+                    <>
+                      <ShieldPlus className="mr-2 h-4 w-4" />
+                      Create Admin
+                    </>
                   )}
                 </Button>
               </Field>
 
               <FieldSeparator />
 
-              {/* Login Link */}
               <FieldDescription className="text-center text-sm">
-                Already have an account?{" "}
-                <a href="/login" className="font-medium text-primary hover:underline">
-                  Sign in
-                </a>
+                <Link href="/users" className="font-medium text-primary hover:underline">
+                  Back to users
+                </Link>
               </FieldDescription>
             </FieldGroup>
           </form>
 
-          {/* RIGHT: VISUAL PANEL */}
           <div className="relative hidden overflow-hidden md:block">
-            <img
+            <Image
               src="/placeholder.svg"
-              alt="Signup Visual"
-              className="absolute inset-0 h-full w-full object-cover dark:brightness-[0.25] dark:grayscale"
+              alt="Admin panel"
+              fill
+              className="object-cover dark:brightness-[0.25] dark:grayscale"
             />
-            {/* Gradient glass overlay */}
-            <div className="absolute inset-0 bg-gradient-to-br from-primary/20 via-transparent to-transparent backdrop-blur-sm" />
+            <div className="absolute inset-0 bg-gradient-to-br from-destructive/25 via-transparent to-transparent backdrop-blur-sm" />
           </div>
         </CardContent>
       </Card>
 
-      {/* Terms */}
       <FieldDescription className="px-6 text-center text-xs text-muted-foreground">
-        By creating an account, you agree to our{" "}
-        <a href="/terms" className="underline hover:text-primary">
-          Terms of Service
-        </a>{" "}
-        and{" "}
-        <a href="/privacy-policy" className="underline hover:text-primary">
-          Privacy Policy
-        </a>
-        .
+        Creating an admin grants elevated permissions. Only do this for trusted users.
       </FieldDescription>
     </div>
   );

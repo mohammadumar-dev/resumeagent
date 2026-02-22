@@ -6,6 +6,7 @@ import { toast } from "sonner";
 
 import { useAuth } from "@/contexts/AuthContext";
 import { resumeApi } from "@/lib/api/resume";
+import { masterResumeApi } from "@/lib/api/master-resume";
 import type { ApiError } from "@/types/auth";
 
 import { ResumeGenerationStatus } from "@/components/ResumeGenerationStatus";
@@ -19,12 +20,14 @@ import {
 } from "@/components/ui/card";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
+import { useRouter } from "next/navigation";
 
 export function GenerateResumeForm() {
     const [jobDescriptionText, setJobDescriptionText] = useState("");
     const [isLoading, setIsLoading] = useState(false);
     const [statusResetKey, setStatusResetKey] = useState(0);
     const { user } = useAuth();
+    const router = useRouter();
 
     const canSubmit = jobDescriptionText.trim().length > 0;
 
@@ -40,6 +43,13 @@ export function GenerateResumeForm() {
         setIsLoading(true);
 
         try {
+            const masterResume = await masterResumeApi.viewOrNull();
+            if (!masterResume?.resumeJson) {
+                toast.error("No master resume found. Create one before generating a resume.");
+                router.push("/master-resume/create");
+                return;
+            }
+
             const response = await resumeApi.generate(jobDescriptionText);
 
             toast.success(

@@ -36,8 +36,6 @@ export default function MasterResumePage() {
             await toast.promise(masterResumeApi.remove(), {
                 loading: "Deleting master resume...",
                 success: (res) => res.message || "Master resume deleted successfully.",
-                error: (err) =>
-                    err?.message || "Failed to delete master resume.",
             });
 
             setIsDeleteOpen(false);
@@ -54,7 +52,12 @@ export default function MasterResumePage() {
                 const response = await masterResumeApi.view();
                 setData(response);
             } catch (error) {
-                console.error(error);
+                const status = (error as { status?: number } | null)?.status;
+                if (status === 403 || status === 404) {
+                    setData(null);
+                } else {
+                    toast.error("An error occurred while loading your master resume. Please try again.");
+                }
             } finally {
                 setIsLoading(false);
             }

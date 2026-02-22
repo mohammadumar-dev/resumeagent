@@ -254,4 +254,15 @@ public class AuthController {
 
         return ResponseEntity.ok(resp);
     }
+
+    /**
+     * Soft delete (deactivate) the currently authenticated user by setting emailActive to false.
+     * REQUIRES AUTHENTICATION (access token in cookie)
+     * Endpoint: PATCH /auth/deactivate
+     */
+    @PatchMapping(value = "/deactivate")
+    public ResponseEntity<CommonResponse> deactivateCurrentUser(Authentication authentication) {
+        CommonResponse response = authenticationService.deactivateCurrentUser(authentication);
+        return ResponseEntity.ok(response);
+    }
 }

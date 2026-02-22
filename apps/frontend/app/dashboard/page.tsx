@@ -6,7 +6,6 @@ import {
 } from "@/components/ui/sidebar";
 
 import { AnalyticsOverview } from "@/components/dashboard/analytics-overview";
-import { MasterResumeCard } from "@/components/dashboard/master-resume-card";
 import { RecentActivity } from "@/components/dashboard/recent-activity";
 import { WelcomeHero } from "@/components/dashboard/welcome-hero";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
@@ -35,7 +34,6 @@ export default function DashboardPage() {
                     {/* Left Column: Hero & Master Resume (2/3 on large screens) */}
                     <div className="flex flex-col gap-8 lg:col-span-2">
                       <WelcomeHero />
-                      <MasterResumeCard />
                     </div>
                     {/* Right Column: Recent Activity (1/3 on large screens) */}
                     <div className="lg:col-span-1">

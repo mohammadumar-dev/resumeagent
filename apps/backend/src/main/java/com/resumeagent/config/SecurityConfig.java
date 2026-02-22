@@ -95,6 +95,7 @@ public class SecurityConfig {
                                 "/auth/register",
                                 "/auth/verify-email",
                                 "/auth/logout",
+                                "/auth/deactivate",
                                 "/auth/resend-verification",
                                 "/auth/forgot-password",
                                 "/auth/reset-password",
@@ -127,7 +128,7 @@ public class SecurityConfig {
                         .permitAll()
 
                         // Admin endpoints (role-based)
-                        .requestMatchers("/admin/**").hasRole("ADMIN")
+                        .requestMatchers("/api/admin/**").hasRole("ADMIN")
 
                         // All other endpoints require authentication
                         .anyRequest().authenticated())

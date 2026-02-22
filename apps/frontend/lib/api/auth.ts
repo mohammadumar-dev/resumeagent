@@ -70,4 +70,11 @@ export const authApi = {
             newPassword,
         });
     },
+
+    /**
+     * Deactivate (soft delete) the currently authenticated user.
+     */
+    deactivate: async (): Promise<CommonResponse> => {
+        return apiClient.patch<CommonResponse>('/auth/deactivate');
+    },
 };
