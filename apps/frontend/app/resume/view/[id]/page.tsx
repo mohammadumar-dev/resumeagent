@@ -35,6 +35,11 @@ export default function ViewResumePage() {
   const router = useRouter();
 
   const handleDelete = async () => {
+    if (!resumeId) {
+      toast.error("Missing resume ID.");
+      return;
+    }
+
     try {
       setIsDeleting(true);
 

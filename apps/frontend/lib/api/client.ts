@@ -39,6 +39,8 @@ function shouldLogPayload(payload: unknown): boolean {
     return Object.keys(payload as Record<string, unknown>).length > 0;
 }
 
+type ApiRequestOptions = RequestInit & { silent?: boolean };
+
 export class ApiClient {
     private baseUrl: string;
 
@@ -49,10 +51,7 @@ export class ApiClient {
     /**
      * Make an HTTP request with credentials and error handling
      */
-    async request<T>(
-        endpoint: string,
-        options: (RequestInit & { silent?: boolean }) = {}
-    ): Promise<T> {
+    async request<T>(endpoint: string, options: ApiRequestOptions = {}): Promise<T> {
         const url = `${this.baseUrl}${endpoint}`;
 
         const { silent, ...requestOptions } = options;
@@ -129,7 +128,7 @@ export class ApiClient {
     /**
      * GET request
      */
-    async get<T>(endpoint: string, options?: RequestInit): Promise<T> {
+    async get<T>(endpoint: string, options?: ApiRequestOptions): Promise<T> {
         return this.request<T>(endpoint, {
             ...options,
             method: 'GET',
@@ -139,7 +138,7 @@ export class ApiClient {
     async post<T>(
         endpoint: string,
         data?: unknown,
-        options?: RequestInit
+        options?: ApiRequestOptions
     ): Promise<T> {
         const isFormData = data instanceof FormData;
 
@@ -157,7 +156,7 @@ export class ApiClient {
     async put<T>(
         endpoint: string,
         data?: unknown,
-        options?: RequestInit
+        options?: ApiRequestOptions
     ): Promise<T> {
         const isFormData = data instanceof FormData;
 
@@ -175,7 +174,7 @@ export class ApiClient {
     async patch<T>(
         endpoint: string,
         data?: unknown,
-        options?: RequestInit
+        options?: ApiRequestOptions
     ): Promise<T> {
         const isFormData = data instanceof FormData;
 
@@ -194,14 +193,14 @@ export class ApiClient {
     /**
      * DELETE request
      */
-    async delete<T>(endpoint: string, options?: RequestInit): Promise<T> {
+    async delete<T>(endpoint: string, options?: ApiRequestOptions): Promise<T> {
         return this.request<T>(endpoint, {
             ...options,
             method: 'DELETE',
         });
     }
 
-    async blob(endpoint: string, options?: (RequestInit & { silent?: boolean })): Promise<Blob> {
+    async blob(endpoint: string, options?: ApiRequestOptions): Promise<Blob> {
         const url = `${this.baseUrl}${endpoint}`;
         const { silent, ...requestOptions } = options ?? {};
 
