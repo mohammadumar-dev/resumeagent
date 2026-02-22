@@ -126,6 +126,24 @@ export class ApiClient {
         });
     }
 
+    async patch<T>(
+        endpoint: string,
+        data?: unknown,
+        options?: RequestInit
+    ): Promise<T> {
+        const isFormData = data instanceof FormData;
+
+        return this.request<T>(endpoint, {
+            ...options,
+            method: 'PATCH',
+            body: isFormData ? (data as FormData) : data ? JSON.stringify(data) : undefined,
+            headers: {
+                ...(isFormData ? {} : data ? { 'Content-Type': 'application/json' } : {}),
+                ...options?.headers,
+            },
+        });
+    }
+
 
     /**
      * DELETE request
