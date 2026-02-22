@@ -173,3 +173,39 @@ html {
     @apply bg-muted-foreground/50;
   }
 }
+
+/* ── Extreme Panel Animations (GPU-safe: transform + opacity only) ── */
+@keyframes spin-slow   { to { transform: rotate(360deg); } }
+@keyframes spin-rev    { to { transform: rotate(-360deg); } }
+@keyframes spin-fast   { to { transform: rotate(360deg); } }
+@keyframes float-a     { 0%,100%{transform:translate3d(0,0,0) scale(1);} 50%{transform:translate3d(14px,-20px,0) scale(1.07);} }
+@keyframes float-b     { 0%,100%{transform:translate3d(0,0,0) scale(1);} 50%{transform:translate3d(-18px,14px,0) scale(0.93);} }
+@keyframes float-c     { 0%,100%{transform:translate3d(0,0,0) scale(1.04);} 50%{transform:translate3d(10px,18px,0) scale(0.96);} }
+@keyframes pulse-blob  { 0%,100%{opacity:.45;transform:scale(1);}   50%{opacity:.8;transform:scale(1.15);} }
+@keyframes pulse-blob2 { 0%,100%{opacity:.25;transform:scale(1);}   50%{opacity:.55;transform:scale(1.2);} }
+@keyframes orbit-cw    { to { transform: rotate(360deg) translateX(var(--orbit-r,80px)) rotate(-360deg); } }
+@keyframes orbit-ccw   { to { transform: rotate(-360deg) translateX(var(--orbit-r,60px)) rotate(360deg); } }
+@keyframes morph-blob  { 0%,100%{border-radius:60% 40% 55% 45%/40% 60% 40% 60%;} 33%{border-radius:40% 60% 30% 70%/60% 30% 70% 40%;} 66%{border-radius:70% 30% 60% 40%/30% 70% 40% 60%;} }
+@keyframes scanner     { 0%{transform:translateY(-110%) scaleY(.5);opacity:0;} 8%,92%{opacity:1;} 100%{transform:translateY(110%) scaleY(.5);opacity:0;} }
+@keyframes dash-draw   { to { stroke-dashoffset: 0; } }
+@keyframes twinkle     { 0%,100%{opacity:0;transform:scale(.3) rotate(0deg);} 50%{opacity:1;transform:scale(1) rotate(180deg);} }
+@keyframes shimmer-x   { 0%{transform:translateX(-120%) skewX(-20deg);opacity:0;} 40%,60%{opacity:.7;} 100%{transform:translateX(240%) skewX(-20deg);opacity:0;} }
+@keyframes grid-fade   { 0%,100%{opacity:.04;} 50%{opacity:.09;} }
+@keyframes counter-rot { 0%{transform:rotate(0deg) scale(1);}   50%{transform:rotate(180deg) scale(1.05);} 100%{transform:rotate(360deg) scale(1);} }
+
+.animate-spin-slow  { animation: spin-slow  18s linear infinite; }
+.animate-spin-rev   { animation: spin-rev   12s linear infinite; }
+.animate-spin-fast  { animation: spin-fast   5s linear infinite; }
+.animate-float-a    { animation: float-a     7s ease-in-out infinite; }
+.animate-float-b    { animation: float-b     9s ease-in-out infinite; }
+.animate-float-c    { animation: float-c    11s ease-in-out infinite; }
+.animate-pulse-blob { animation: pulse-blob  4s ease-in-out infinite; }
+.animate-pulse-blob2{ animation: pulse-blob2 6s ease-in-out infinite; }
+.animate-morph      { animation: morph-blob  9s ease-in-out infinite; }
+.animate-scanner    { animation: scanner    4.5s ease-in-out infinite; }
+.animate-twinkle    { animation: twinkle    var(--tw-dur,3s) ease-in-out infinite var(--tw-delay,0s); }
+.animate-shimmer    { animation: shimmer-x  3.5s ease-in-out infinite; }
+.animate-grid-fade  { animation: grid-fade   6s ease-in-out infinite; }
+
+/* GPU promotion hint */
+.gpu { will-change: transform, opacity; transform: translateZ(0); }
