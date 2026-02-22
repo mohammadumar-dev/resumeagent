@@ -6,6 +6,7 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
 
 import java.util.Collection;
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -15,4 +16,10 @@ public interface ResumeGenerationRepository extends JpaRepository<ResumeGenerati
             UUID userId,
             Collection<ResumeGenerationStatus> statuses
     );
+
+    Optional<ResumeGeneration> findFirstByUserIdOrderByCreatedAtDesc(UUID userId);
+
+    long countByUserId(UUID userId);
+
+    long countByUserIdAndStatus(UUID userId, ResumeGenerationStatus status);
 }
