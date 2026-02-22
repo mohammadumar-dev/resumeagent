@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
+import { zodResolver } from "@hookform/resolvers/zod";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -22,11 +23,33 @@ import type { ApiError } from "@/types/auth";
 
 const signupSchema = z
   .object({
-    fullName: z.string().min(2, "Name must be at least 2 characters"),
-    email: z.string().email("Invalid email address"),
-    password: z.string().min(8, "Password must be at least 8 characters"),
-    confirmPassword: z.string(),
+    fullName: z
+      .string()
+      .trim()
+      .min(2, "Name must be at least 2 characters")
+      .max(150, "Name is too long"),
+    email: z
+      .string()
+      .trim()
+      .min(1, "Email is required")
+      .max(150, "Email is too long")
+      .email("Invalid email address")
+      .toLowerCase(),
+    password: z
+      .string()
+      .min(8, "Password must be at least 8 characters")
+      .max(72, "Password must be at most 72 characters"),
+    confirmPassword: z.string().min(1, "Please confirm your password"),
   })
+  .refine(
+    (data) =>
+      /(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[^A-Za-z0-9])/.test(data.password),
+    {
+      message:
+        "Password must include uppercase, lowercase, number, and symbol",
+      path: ["password"],
+    }
+  )
   .refine((data) => data.password === data.confirmPassword, {
     message: "Passwords don't match",
     path: ["confirmPassword"],
@@ -47,7 +70,11 @@ export function SignupForm({
     register,
     handleSubmit,
     formState: { errors },
-  } = useForm<SignupFormData>();
+  } = useForm<SignupFormData>({
+    resolver: zodResolver(signupSchema),
+    mode: "onTouched",
+    reValidateMode: "onChange",
+  });
 
   const onSubmit = async (data: SignupFormData) => {
     setIsLoading(true);
@@ -83,11 +110,14 @@ export function SignupForm({
               <div className="space-y-2">
                 <h1 className="text-2xl font-bold tracking-tight">Check Your Email</h1>
                 <p className="text-sm text-muted-foreground">
-                  We've sent a verification link to your email address. Please click the link to verify your account before logging in.
+                  We&apos;ve sent a verification link to your email address. Please click the link to verify your account before logging in.
                 </p>
               </div>
               <Button onClick={() => router.push("/login")} size="lg" className="w-full max-w-sm">
                 Continue to Login
+              </Button>
+              <Button asChild variant="outline" size="lg" className="w-full max-w-sm">
+                <a href="/resend-verification">Resend verification email</a>
               </Button>
             </div>
           </CardContent>
@@ -108,6 +138,7 @@ export function SignupForm({
           {/* LEFT: FORM */}
           <form
             onSubmit={handleSubmit(onSubmit)}
+            noValidate
             className="flex flex-col justify-center p-8 sm:p-10 md:p-12"
           >
             <FieldGroup className="gap-6">
@@ -129,6 +160,7 @@ export function SignupForm({
                   type="text"
                   placeholder="John Doe"
                   {...register("fullName")}
+                  aria-invalid={Boolean(errors.fullName)}
                   className="bg-background/70 backdrop-blur-sm transition-all focus-visible:ring-2 focus-visible:ring-primary"
                 />
                 {errors.fullName && (
@@ -144,6 +176,7 @@ export function SignupForm({
                   type="email"
                   placeholder="you@example.com"
                   {...register("email")}
+                  aria-invalid={Boolean(errors.email)}
                   className="bg-background/70 backdrop-blur-sm transition-all focus-visible:ring-2 focus-visible:ring-primary"
                 />
                 {errors.email && (
@@ -162,13 +195,14 @@ export function SignupForm({
                     id="password"
                     type="password"
                     {...register("password")}
+                    aria-invalid={Boolean(errors.password)}
                     className="bg-background/70 backdrop-blur-sm transition-all focus-visible:ring-2 focus-visible:ring-primary"
                   />
                   {errors.password && (
                     <p className="text-xs text-destructive">{errors.password.message}</p>
                   )}
                   <FieldDescription className="text-xs">
-                    Minimum 8 characters.
+                    Minimum 8 characters, including uppercase, lowercase, number, and symbol.
                   </FieldDescription>
                 </Field>
 
@@ -178,6 +212,7 @@ export function SignupForm({
                     id="confirm-password"
                     type="password"
                     {...register("confirmPassword")}
+                    aria-invalid={Boolean(errors.confirmPassword)}
                     className="bg-background/70 backdrop-blur-sm transition-all focus-visible:ring-2 focus-visible:ring-primary"
                   />
                   {errors.confirmPassword && (
