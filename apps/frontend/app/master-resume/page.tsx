@@ -49,15 +49,12 @@ export default function MasterResumePage() {
     useEffect(() => {
         const load = async () => {
             try {
-                const response = await masterResumeApi.view();
+                const response = await masterResumeApi.viewOrNull();
                 setData(response);
             } catch (error) {
-                const status = (error as { status?: number } | null)?.status;
-                if (status === 403 || status === 404) {
-                    setData(null);
-                } else {
-                    toast.error("An error occurred while loading your master resume. Please try again.");
-                }
+                const apiError = error as { message?: string; status?: number } | null;
+                console.error("[API] /api/master-resume/view", error);
+                toast.error(apiError?.message || "Failed to load master resume.");
             } finally {
                 setIsLoading(false);
             }

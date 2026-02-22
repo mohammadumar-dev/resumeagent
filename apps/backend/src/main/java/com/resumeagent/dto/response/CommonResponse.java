@@ -5,6 +5,9 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
+import java.util.List;
+import java.util.Map;
+
 /**
  * Common response DTO
  */
@@ -15,7 +18,7 @@ import lombok.NoArgsConstructor;
 public class CommonResponse {
 
     /**
-     * Success message
+     * Human-friendly message (success or error).
      */
     private String message;
 
@@ -23,4 +26,14 @@ public class CommonResponse {
      * User / Admin email (for confirmation)
      */
     private String email;
+
+    /**
+     * HTTP status code (only set for error responses).
+     */
+    private Integer status;
+
+    /**
+     * Field-level validation errors (only set when applicable).
+     */
+    private Map<String, List<String>> errors;
 }

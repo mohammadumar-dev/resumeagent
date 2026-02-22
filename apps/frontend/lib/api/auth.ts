@@ -37,7 +37,8 @@ export const authApi = {
      * Get current authenticated user information
      */
     getCurrentUser: async (): Promise<UserInfoResponse> => {
-        return apiClient.get<UserInfoResponse>('/auth/me');
+        // Note: 401 is expected on first load when not logged in, so keep it silent.
+        return apiClient.get<UserInfoResponse>('/auth/me', { silent: true });
     },
 
     /**

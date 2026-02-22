@@ -1,6 +1,9 @@
 package com.resumeagent.config;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.resumeagent.security.CookieUtil;
 import com.resumeagent.security.JwtAuthenticationFilter;
+import com.resumeagent.dto.response.CommonResponse;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -9,6 +12,7 @@ import org.springframework.security.config.annotation.authentication.configurati
 import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
+import org.springframework.security.config.annotation.web.configurers.HeadersConfigurer;
 import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -18,13 +22,12 @@ import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 
+import jakarta.servlet.http.HttpServletResponse;
 import java.util.List;
 
 /**
  * Spring Security Configuration
- * 
  * Configures production-grade stateless authentication with JWT
- * 
  * SECURITY ARCHITECTURE:
  * - Stateless session management (no JSESSIONID)
  * - JWT-based authentication via cookies
@@ -32,7 +35,6 @@ import java.util.List;
  * - CORS configuration with explicit origins
  * - Role-based authorization
  * - HTTPS enforcement headers
- * 
  * THREAT MITIGATION:
  * - Session Fixation: Stateless design eliminates this attack
  * - XSS: HttpOnly cookies prevent JavaScript access
@@ -42,35 +44,31 @@ import java.util.List;
  */
 @Configuration
 @EnableWebSecurity
-@EnableMethodSecurity(prePostEnabled = true)
+@EnableMethodSecurity
 @RequiredArgsConstructor
 public class SecurityConfig {
 
     private final JwtAuthenticationFilter jwtAuthenticationFilter;
+    private final ObjectMapper objectMapper;
+    private final CookieUtil cookieUtil;
 
     /**
      * Security Filter Chain
-     * 
      * Defines HTTP security rules, session management, and filter order
-     * 
      * CONFIGURATION DECISIONS:
-     * 
      * 1. STATELESS SESSIONS:
      * - No server-side session storage
      * - No JSESSIONID cookie
      * - Authentication state in JWT only
-     * 
      * 2. CSRF PROTECTION:
      * - ENABLED (not disabled)
      * - Uses CookieCsrfTokenRepository
      * - SameSite cookies provide first line of defense
      * - CSRF tokens for state-changing operations
-     * 
      * 3. ENDPOINT SECURITY:
      * - /auth/login, /auth/register, /auth/verify-email: PUBLIC
      * - /auth/me, /auth/logout: AUTHENTICATED
      * - All others: AUTHENTICATED by default
-     * 
      * 4. FILTER ORDER:
      * - JwtAuthenticationFilter runs BEFORE UsernamePasswordAuthenticationFilter
      * - Ensures JWT validation happens first
@@ -133,19 +131,56 @@ public class SecurityConfig {
                         // All other endpoints require authentication
                         .anyRequest().authenticated())
 
+                // Return JSON for auth errors (instead of default HTML/error payloads)
+                .exceptionHandling(ex -> ex
+                        .authenticationEntryPoint((request, response, authException) -> {
+                            writeCommonError(response, HttpServletResponse.SC_UNAUTHORIZED, "Unauthorized");
+                        })
+                        .accessDeniedHandler((request, response, accessDeniedException) -> {
+                            writeCommonError(response, HttpServletResponse.SC_FORBIDDEN, "Forbidden");
+                        })
+                )
+
                 // Add JWT filter before Spring Security's authentication filter
                 .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class)
 
                 // Security Headers (Production Best Practices)
                 .headers(headers -> headers
                         // Prevent clickjacking
-                        .frameOptions(frame -> frame.deny())
+                        .frameOptions(HeadersConfigurer.FrameOptionsConfig::deny)
                         // Prevent MIME type sniffing
-                        .contentTypeOptions(contentType -> contentType.disable())
+                        .contentTypeOptions(HeadersConfigurer.ContentTypeOptionsConfig::disable)
                         // XSS Protection (deprecated but still useful for old browsers)
-                        .xssProtection(xss -> xss.disable()));
+                        .xssProtection(HeadersConfigurer.XXssConfig::disable));
 
         return http.build();
+    }
+
+    private void writeCommonError(HttpServletResponse response, int status, String message) {
+        try {
+            if (response.isCommitted()) return;
+            response.resetBuffer();
+            response.setStatus(status);
+            response.setContentType("application/json");
+            response.setCharacterEncoding("UTF-8");
+
+            // If the request is unauthorized, clear auth cookies to avoid clients getting stuck with stale tokens.
+            if (status == HttpServletResponse.SC_UNAUTHORIZED) {
+                cookieUtil.addCookieWithSameSite(response, cookieUtil.deleteAccessTokenCookie(), "Lax");
+                cookieUtil.addCookieWithSameSite(response, cookieUtil.deleteRefreshTokenCookie(), "Strict");
+            }
+
+            objectMapper.writeValue(
+                    response.getOutputStream(),
+                    CommonResponse.builder()
+                            .message(message)
+                            .status(status)
+                            .build()
+            );
+            response.flushBuffer();
+        } catch (Exception ignored) {
+            // If response is already committed or writing fails, do nothing.
+        }
     }
 
     /**

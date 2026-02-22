@@ -36,10 +36,17 @@ export const masterResumeApi = {
 
   viewOrNull: async (): Promise<MasterResumeViewResponse | null> => {
     try {
-      return await apiClient.get<MasterResumeViewResponse>('/api/master-resume/view');
+      // 403/404 are expected when the user has no master resume yet.
+      return await apiClient.get<MasterResumeViewResponse>('/api/master-resume/view', { silent: true });
     } catch (error) {
-      const status = (error as { status?: number } | null)?.status;
+      const status = (error as { status?: number; message?: string } | null)?.status;
       if (status === 403 || status === 404) return null;
+      // Backward-compatible: older backend versions returned 400 for missing master resume.
+      const message = (error as { message?: string } | null)?.message?.toLowerCase() ?? "";
+      if (status === 400 && message.includes("master resume") && (message.includes("not found") || message.includes("does not exist"))) {
+        return null;
+      }
+      console.error(`[API] /api/master-resume/view`, error);
       throw error;
     }
   },
