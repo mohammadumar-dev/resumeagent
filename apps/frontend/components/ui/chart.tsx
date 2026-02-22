@@ -279,13 +279,24 @@ function ChartLegendContent({
     >
       {payload
         .filter((item) => item.type !== "none")
-        .map((item) => {
+        .map((item, index) => {
           const key = `${nameKey || item.dataKey || "value"}`
           const itemConfig = getPayloadConfigFromPayload(config, item, key)
 
+          const payloadObj =
+            typeof item.payload === "object" && item.payload !== null
+              ? (item.payload as Record<string, unknown>)
+              : null
+
+          const keyPart =
+            (nameKey && payloadObj ? payloadObj[nameKey] : undefined) ??
+            item.dataKey ??
+            item.value ??
+            index
+
           return (
             <div
-              key={item.value}
+              key={`${String(keyPart)}-${index}`}
               className={cn(
                 "[&>svg]:text-muted-foreground flex items-center gap-1.5 [&>svg]:h-3 [&>svg]:w-3"
               )}
