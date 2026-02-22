@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
+import { zodResolver } from "@hookform/resolvers/zod";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -21,7 +22,13 @@ import { Loader2 } from "lucide-react";
 import type { ApiError } from "@/types/auth";
 
 const loginSchema = z.object({
-  email: z.string().email("Invalid email address"),
+  email: z
+    .string()
+    .trim()
+    .min(1, "Email is required")
+    .max(150, "Email is too long")
+    .email("Invalid email address")
+    .toLowerCase(),
   password: z.string().min(1, "Password is required"),
 });
 
@@ -39,7 +46,11 @@ export function LoginForm({
     register,
     handleSubmit,
     formState: { errors },
-  } = useForm<LoginFormData>();
+  } = useForm<LoginFormData>({
+    resolver: zodResolver(loginSchema),
+    mode: "onTouched",
+    reValidateMode: "onChange",
+  });
 
   const onSubmit = async (data: LoginFormData) => {
     setIsLoading(true);
@@ -73,6 +84,7 @@ export function LoginForm({
           {/* Left Side - Form */}
           <form
             onSubmit={handleSubmit(onSubmit)}
+            noValidate
             className="flex flex-col justify-center p-8 sm:p-10 md:p-12"
           >
             <FieldGroup className="gap-6">
@@ -94,6 +106,7 @@ export function LoginForm({
                   type="email"
                   placeholder="you@example.com"
                   {...register("email")}
+                  aria-invalid={Boolean(errors.email)}
                   className="bg-background/70 backdrop-blur-sm transition-all focus-visible:ring-2 focus-visible:ring-primary"
                 />
                 {errors.email && (
@@ -108,7 +121,7 @@ export function LoginForm({
                 <div className="flex items-center justify-between">
                   <FieldLabel htmlFor="password">Password</FieldLabel>
                   <a
-                    href="#"
+                    href="/forgot-password"
                     className="text-xs text-primary hover:underline transition-colors"
                   >
                     Forgot password?
@@ -118,6 +131,7 @@ export function LoginForm({
                   id="password"
                   type="password"
                   {...register("password")}
+                  aria-invalid={Boolean(errors.password)}
                   className="bg-background/70 backdrop-blur-sm transition-all focus-visible:ring-2 focus-visible:ring-primary"
                 />
                 {errors.password && (
