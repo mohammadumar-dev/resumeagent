@@ -14,6 +14,19 @@ export interface LoginRequest {
     password: string;
 }
 
+export interface ResendVerificationRequest {
+    email: string;
+}
+
+export interface ForgotPasswordRequest {
+    email: string;
+}
+
+export interface ResetPasswordRequest {
+    token: string;
+    newPassword: string;
+}
+
 export interface RegisterRequest {
     fullName: string;
     email: string;
