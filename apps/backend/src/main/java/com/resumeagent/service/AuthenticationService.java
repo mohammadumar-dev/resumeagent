@@ -327,4 +327,27 @@ public class AuthenticationService {
                 .message("If this email is registered and not verified, a verification link has been sent.")
                 .build();
     }
+
+    @Transactional
+    public CommonResponse deactivateCurrentUser(Authentication authentication) {
+        String email = authentication.getName();
+
+        User user = userRepository.findByEmail(email)
+                .orElseThrow(() -> new UsernameNotFoundException("User not found"));
+
+        if (!user.isEmailActive()) {
+            return CommonResponse.builder()
+                    .message("Account is already deactivated")
+                    .email(user.getEmail())
+                    .build();
+        }
+
+        user.setEmailActive(false);
+        userRepository.save(user);
+
+        return CommonResponse.builder()
+                .message("Account deactivated successfully")
+                .email(user.getEmail())
+                .build();
+    }
 }
