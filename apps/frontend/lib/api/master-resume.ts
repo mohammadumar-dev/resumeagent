@@ -34,6 +34,16 @@ export const masterResumeApi = {
     return apiClient.get<MasterResumeViewResponse>('/api/master-resume/view');
   },
 
+  viewOrNull: async (): Promise<MasterResumeViewResponse | null> => {
+    try {
+      return await apiClient.get<MasterResumeViewResponse>('/api/master-resume/view');
+    } catch (error) {
+      const status = (error as { status?: number } | null)?.status;
+      if (status === 403 || status === 404) return null;
+      throw error;
+    }
+  },
+
   remove: async (): Promise<MasterResumeCommonResponse> => {
     return apiClient.delete<MasterResumeCommonResponse>('/api/master-resume/delete');
   },
