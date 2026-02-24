@@ -97,8 +97,7 @@ public class SecurityConfig {
                                 "/auth/resend-verification",
                                 "/auth/forgot-password",
                                 "/auth/reset-password",
-                                "/api/admin/register",
-                                "/api/**"
+                                "/api/admin/register"
                         )
                 )
 
