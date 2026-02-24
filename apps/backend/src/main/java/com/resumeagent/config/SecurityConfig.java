@@ -132,12 +132,10 @@ public class SecurityConfig {
 
                 // Return JSON for auth errors (instead of default HTML/error payloads)
                 .exceptionHandling(ex -> ex
-                        .authenticationEntryPoint((request, response, authException) -> {
-                            writeCommonError(response, HttpServletResponse.SC_UNAUTHORIZED, "Unauthorized");
-                        })
-                        .accessDeniedHandler((request, response, accessDeniedException) -> {
-                            writeCommonError(response, HttpServletResponse.SC_FORBIDDEN, "Forbidden");
-                        })
+                        .authenticationEntryPoint((request, response, authException) ->
+                                writeCommonError(response, HttpServletResponse.SC_UNAUTHORIZED, "Unauthorized"))
+                        .accessDeniedHandler((request, response, accessDeniedException) ->
+                                writeCommonError(response, HttpServletResponse.SC_FORBIDDEN, "Forbidden"))
                 )
 
                 // Add JWT filter before Spring Security's authentication filter
@@ -184,15 +182,15 @@ public class SecurityConfig {
 
     /**
      * CORS Configuration
-     * 
+     *
      * Explicit allowed origins (NO wildcards)
      * Credentials enabled (required for cookies)
-     * 
+     *
      * SECURITY NOTE:
      * - Never use allowedOrigins("*") with allowCredentials(true)
      * - Specify exact frontend URLs
      * - Update for production domains
-     * 
+     *
      * @return CORS configuration source
      */
     @Bean
@@ -204,8 +202,8 @@ public class SecurityConfig {
                 "http://localhost:3000", // React/Next.js dev server
                 "http://localhost:5173", // Vite dev server
                 "http://localhost:4200" // Angular dev server
-        // TODO: Add production frontend URL
-        // "https://app.resumeagent.com"
+                // TODO: Add production frontend URL
+                // "https://app.resumeagent.com"
         ));
 
         // Allowed HTTP methods
@@ -234,20 +232,20 @@ public class SecurityConfig {
 
     /**
      * Password Encoder Bean
-     * 
+     *
      * Uses BCrypt with strength 12
-     * 
+     *
      * SECURITY RATIONALE:
      * - BCrypt is intentionally slow (rate limits brute force)
      * - Strength 12 provides ~250ms per hash (good balance)
      * - Automatic salt generation
      * - Industry standard and well-tested
-     * 
+     *
      * THREAT MITIGATION:
      * - Credential Stuffing: Slow hashing rate limits attempts
      * - Database Breach: Passwords cannot be reversed
      * - Rainbow Tables: Unique salt per password
-     * 
+     *
      * @return BCrypt password encoder
      */
     @Bean
@@ -257,9 +255,9 @@ public class SecurityConfig {
 
     /**
      * Authentication Manager Bean
-     * 
+     *
      * Required for manual authentication (e.g., in AuthenticationService)
-     * 
+     *
      * @param authConfig Authentication configuration
      * @return Authentication manager
      */
