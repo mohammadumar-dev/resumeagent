@@ -102,7 +102,7 @@ export class ApiClient {
                     if (!silent) log(`[API ${response.status}] ${endpoint} ${apiError.message}`, text);
                 }
 
-                throw apiError;
+                return Promise.reject(apiError);
             }
 
             // Parse successful response
@@ -115,21 +115,21 @@ export class ApiClient {
         } catch (error) {
             // Network errors or other fetch failures
             if (error instanceof TypeError) {
-                throw {
+                return Promise.reject({
                     message: 'Network error. Please check your connection.',
                     status: 0,
-                } as ApiError;
+                } as ApiError);
             }
 
             // Re-throw API errors
-            throw error;
+            return Promise.reject(error);
         }
     }
 
     /**
      * GET request
      */
-    async get<T>(endpoint: string, options?: RequestInit): Promise<T> {
+    async get<T>(endpoint: string, options?: (RequestInit & { silent?: boolean })): Promise<T> {
         return this.request<T>(endpoint, {
             ...options,
             method: 'GET',
@@ -139,7 +139,7 @@ export class ApiClient {
     async post<T>(
         endpoint: string,
         data?: unknown,
-        options?: RequestInit
+        options?: (RequestInit & { silent?: boolean })
     ): Promise<T> {
         const isFormData = data instanceof FormData;
 
@@ -157,7 +157,7 @@ export class ApiClient {
     async put<T>(
         endpoint: string,
         data?: unknown,
-        options?: RequestInit
+        options?: (RequestInit & { silent?: boolean })
     ): Promise<T> {
         const isFormData = data instanceof FormData;
 
@@ -175,7 +175,7 @@ export class ApiClient {
     async patch<T>(
         endpoint: string,
         data?: unknown,
-        options?: RequestInit
+        options?: (RequestInit & { silent?: boolean })
     ): Promise<T> {
         const isFormData = data instanceof FormData;
 
@@ -194,7 +194,7 @@ export class ApiClient {
     /**
      * DELETE request
      */
-    async delete<T>(endpoint: string, options?: RequestInit): Promise<T> {
+    async delete<T>(endpoint: string, options?: (RequestInit & { silent?: boolean })): Promise<T> {
         return this.request<T>(endpoint, {
             ...options,
             method: 'DELETE',
