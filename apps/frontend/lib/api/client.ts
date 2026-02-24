@@ -102,7 +102,7 @@ export class ApiClient {
                     if (!silent) log(`[API ${response.status}] ${endpoint} ${apiError.message}`, text);
                 }
 
-                throw apiError;
+                return Promise.reject(apiError);
             }
 
             // Parse successful response
@@ -115,14 +115,14 @@ export class ApiClient {
         } catch (error) {
             // Network errors or other fetch failures
             if (error instanceof TypeError) {
-                throw {
+                return Promise.reject({
                     message: 'Network error. Please check your connection.',
                     status: 0,
-                } as ApiError;
+                } as ApiError);
             }
 
             // Re-throw API errors
-            throw error;
+            return Promise.reject(error);
         }
     }
 
