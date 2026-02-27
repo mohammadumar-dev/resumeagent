@@ -46,6 +46,36 @@ export class ApiClient {
         this.baseUrl = baseUrl;
     }
 
+    private getCsrfTokenFromCookie(): string | null {
+        if (typeof document === "undefined") return null;
+        const match = document.cookie.match(/(?:^|; )XSRF-TOKEN=([^;]+)/);
+        return match ? decodeURIComponent(match[1]) : null;
+    }
+
+    private shouldAttachCsrf(method?: string): boolean {
+        if (!method) return false;
+        return !["GET", "HEAD", "OPTIONS"].includes(method.toUpperCase());
+    }
+
+    private async ensureCsrfToken(): Promise<string | null> {
+        const existing = this.getCsrfTokenFromCookie();
+        if (existing) return existing;
+        if (typeof document === "undefined") return null;
+
+        try {
+            await fetch(`${this.baseUrl}/auth/me`, {
+                method: "GET",
+                headers: { "Accept": "application/json" },
+                credentials: "include",
+                cache: "no-store",
+            });
+        } catch {
+            // Best-effort: even a 401 can still set the CSRF cookie.
+        }
+
+        return this.getCsrfTokenFromCookie();
+    }
+
     /**
      * Make an HTTP request with credentials and error handling
      */
@@ -57,10 +87,13 @@ export class ApiClient {
 
         const { silent, ...requestOptions } = options;
 
+        const shouldAttach = this.shouldAttachCsrf(requestOptions.method);
+        const csrfToken = shouldAttach ? await this.ensureCsrfToken() : null;
+
         const defaultHeaders: HeadersInit = {
             'Accept': 'application/json',
+            ...(csrfToken ? { 'X-CSRF-TOKEN': csrfToken } : {}),
         };
-
 
         const config: RequestInit = {
             ...requestOptions,
@@ -104,7 +137,6 @@ export class ApiClient {
 
                 return Promise.reject(apiError);
             }
-
             // Parse successful response
             if (isJson) {
                 return await response.json();
