@@ -2,7 +2,7 @@ import { AppSidebar } from "@/components/app-sidebar";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { SiteHeader } from "@/components/site-header";
 import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar";
-import { GenerateResumeForm } from "@/components/resume/resuem-generate-form";
+import { GenerateResumeForm } from "@/components/resume/resume-generate-form";
 
 export default function GenerateResumePage() {
   return (

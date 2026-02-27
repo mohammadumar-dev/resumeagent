@@ -76,22 +76,22 @@ export function GenerateResumeForm() {
         border
         bg-card/70
         backdrop-blur-xl
-        shadow-[0_30px_80px_-20px_rgba(0,0,0,0.35)]
+        shadow-[0_30px_80px_-20px_color-mix(in oklch, var(--foreground) 24%, transparent)]
         transition-all
       "
             >
                 {/* Subtle glass sheen */}
                 <div
                     aria-hidden
-                    className="pointer-events-none absolute inset-0 bg-gradient-to-br from-primary/5 via-transparent to-transparent"
+                    className="pointer-events-none absolute inset-0 bg-gradient-to-br from-primary/10 via-transparent to-transparent"
                 />
 
                 <CardHeader className="relative space-y-3 pb-4">
-                    <CardTitle className="text-xl font-semibold tracking-tight">
+                    <CardTitle className="text-xl font-semibold tracking-tight text-foreground">
                         Generate Your AI-Powered Master Resume
                     </CardTitle>
 
-                    <CardDescription className="max-w-2xl text-sm leading-relaxed">
+                    <CardDescription className="max-w-2xl text-sm leading-relaxed text-muted-foreground">
                         Paste your complete job description below. Our AI engine will intelligently analyze,
                         extract, and structure your information into a clean, validated master
                         resume using advanced parsing and data modeling.
@@ -105,12 +105,12 @@ export function GenerateResumeForm() {
                     >
                         {/* Text Area Section */}
                         <div className="flex flex-col gap-3">
-                            <Label
-                                htmlFor="resumeText"
-                                className="text-sm font-medium"
-                            >
-                                Paste Your Job Description Here
-                            </Label>
+                                <Label
+                                    htmlFor="resumeText"
+                                    className="text-sm font-medium text-foreground"
+                                >
+                                    Paste Your Job Description Here
+                                </Label>
 
                             <div className="relative">
                                 <Textarea
@@ -159,12 +159,12 @@ export function GenerateResumeForm() {
         gap-2
         bg-primary/90
         text-primary-foreground
-        shadow-[0_8px_25px_-8px_rgba(0,0,0,0.35)]
+        shadow-[0_8px_25px_-8px_color-mix(in oklch, var(--foreground) 28%, transparent)]
         backdrop-blur-md
         transition-all
         duration-200
         hover:bg-primary
-        hover:shadow-[0_12px_35px_-10px_rgba(0,0,0,0.45)]
+        hover:shadow-[0_12px_35px_-10px_color-mix(in oklch, var(--foreground) 35%, transparent)]
         active:scale-[0.98]
       "
                                 >

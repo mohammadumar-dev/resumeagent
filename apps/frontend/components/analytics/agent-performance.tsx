@@ -16,16 +16,16 @@ const agentConfig: Array<{
   field: AgentField;
   color: string;
 }> = [
-    { name: "Resume Parser", field: "resumeParser", color: "bg-primary" },
-    {
-      name: "Job Description Analyzer",
-      field: "jobDescriptionAnalyzer",
-      color: "bg-purple-500",
-    },
-    { name: "Matching", field: "matching", color: "bg-cyan-500" },
-    { name: "Resume Rewriter", field: "resumeRewriter", color: "bg-blue-400" },
-    { name: "ATS Optimizer", field: "atsOptimizer", color: "bg-green-400" },
-  ];
+  { name: "Resume Parser", field: "resumeParser", color: "var(--chart-1)" },
+  {
+    name: "Job Description Analyzer",
+    field: "jobDescriptionAnalyzer",
+    color: "var(--chart-4)",
+  },
+  { name: "Matching", field: "matching", color: "var(--chart-2)" },
+  { name: "Resume Rewriter", field: "resumeRewriter", color: "var(--chart-3)" },
+  { name: "ATS Optimizer", field: "atsOptimizer", color: "var(--chart-5)" },
+];
 
 function formatSeconds(ms: number | null) {
   if (ms === null) return "--";
@@ -88,7 +88,7 @@ export function AgentPerformance() {
     <Card className="glass-panel rounded-3xl p-6">
       <div className="mb-6 flex items-center justify-between">
         <div>
-          <h3 className="text-lg font-semibold text-white">
+          <h3 className="text-lg font-semibold text-foreground">
             Average Agent Execution Time
           </h3>
           <p className="text-sm text-muted-foreground">
@@ -106,15 +106,18 @@ export function AgentPerformance() {
         {agents.map((agent, index) => (
           <div key={index} className="group">
             <div className="mb-1 flex justify-between text-sm">
-              <span className="text-slate-300 transition group-hover:text-white">
+              <span className="text-muted-foreground transition group-hover:text-foreground">
                 {agent.name}
               </span>
-              <span className="font-mono text-white">{agent.valueLabel}</span>
+              <span className="font-mono text-foreground">{agent.valueLabel}</span>
             </div>
-            <div className="h-2 w-full overflow-hidden rounded-full bg-slate-800">
+            <div className="h-2 w-full overflow-hidden rounded-full bg-muted">
               <div
-                className={`h-2 rounded-full ${agent.color} transition-all`}
-                style={{ width: `${agent.percentage}%` }}
+                className="h-2 rounded-full transition-all"
+                style={{
+                  width: `${agent.percentage}%`,
+                  backgroundColor: agent.color,
+                }}
               />
             </div>
           </div>
