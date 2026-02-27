@@ -22,15 +22,15 @@ export function ResumeTrendChart() {
     <Card className="glass-panel rounded-3xl p-6">
       <div className="mb-6 flex items-center justify-between">
         <div>
-          <h3 className="text-lg font-semibold text-white">
+          <h3 className="text-lg font-semibold text-foreground">
             Resume Creation Trend
           </h3>
-          <p className="text-sm text-slate-400">Volume over the last 30 days</p>
+          <p className="text-sm text-muted-foreground">Volume over the last 30 days</p>
         </div>
         <Button
           variant="ghost"
           size="sm"
-          className="bg-primary/10 text-sm font-medium text-primary hover:bg-primary/20 hover:text-white"
+          className="bg-primary/10 text-sm font-medium text-primary hover:bg-primary/20 hover:text-primary-foreground"
         >
           Export CSV
         </Button>
@@ -41,25 +41,25 @@ export function ResumeTrendChart() {
           <AreaChart data={data} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
             <defs>
               <linearGradient id="colorResumes" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="0%" stopColor="#135bec" stopOpacity={0.3} />
-                <stop offset="100%" stopColor="#135bec" stopOpacity={0} />
+                <stop offset="0%" stopColor="var(--chart-1)" stopOpacity={0.3} />
+                <stop offset="100%" stopColor="var(--chart-1)" stopOpacity={0} />
               </linearGradient>
               <linearGradient id="strokeGradient" x1="0" y1="0" x2="1" y2="0">
-                <stop offset="0%" stopColor="#135bec" />
-                <stop offset="100%" stopColor="#6366f1" />
+                <stop offset="0%" stopColor="var(--chart-1)" />
+                <stop offset="100%" stopColor="var(--chart-2)" />
               </linearGradient>
             </defs>
-            <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" />
+            <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" strokeOpacity={0.4} />
             <XAxis
               dataKey="week"
-              stroke="#64748b"
+              stroke="var(--muted-foreground)"
               fontSize={12}
               tickLine={false}
               axisLine={false}
               interval={3}
             />
             <YAxis
-              stroke="#64748b"
+              stroke="var(--muted-foreground)"
               fontSize={12}
               tickLine={false}
               axisLine={false}
@@ -69,11 +69,11 @@ export function ResumeTrendChart() {
               content={({ active, payload }) => {
                 if (active && payload && payload.length) {
                   return (
-                    <div className="rounded-lg border border-white/10 bg-surface-dark p-2 shadow-xl">
-                      <p className="mb-0.5 text-[10px] text-slate-400">
+                    <div className="rounded-lg border border-border bg-card p-2 shadow-xl">
+                      <p className="mb-0.5 text-[10px] text-muted-foreground">
                         {payload[0].payload.week}
                       </p>
-                      <p className="text-sm font-bold tabular-nums text-white">
+                      <p className="text-sm font-bold tabular-nums text-foreground">
                         {payload[0].value} Resumes
                       </p>
                     </div>
@@ -89,13 +89,13 @@ export function ResumeTrendChart() {
               fill="url(#colorResumes)"
               strokeWidth={3}
               dot={false}
-              activeDot={{ r: 6, fill: "#135bec", stroke: "#fff", strokeWidth: 2 }}
+              activeDot={{ r: 6, fill: "var(--chart-1)", stroke: "var(--background)", strokeWidth: 2 }}
             />
           </AreaChart>
         </ResponsiveContainer>
       </div>
 
-      <div className="mt-2 flex justify-between px-1 text-xs text-slate-500">
+      <div className="mt-2 flex justify-between px-1 text-xs text-muted-foreground">
         <span>Week 1</span>
         <span>Week 2</span>
         <span>Week 3</span>

@@ -1,13 +1,17 @@
 package com.resumeagent;
 
-import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
+import org.springframework.boot.builder.SpringApplicationBuilder;
+
+import com.resumeagent.config.InfisicalPropertyInitializer;
 
 @SpringBootApplication
 public class ResumeagentApplication {
 
 	public static void main(String[] args) {
-		SpringApplication.run(ResumeagentApplication.class, args);
+		new SpringApplicationBuilder(ResumeagentApplication.class)
+			.initializers(new InfisicalPropertyInitializer())
+			.run(args);
 	}
 
 }

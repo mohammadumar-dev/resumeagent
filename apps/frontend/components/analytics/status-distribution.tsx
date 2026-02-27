@@ -4,8 +4,8 @@ import { Card } from "@/components/ui/card";
 import { Label, Pie, PieChart, Cell, ResponsiveContainer } from "recharts";
 
 const data = [
-  { name: "SUCCESS", value: 40, color: "#135bec" },
-  { name: "FAILURE", value: 10, color: "#fa6238" },
+  { name: "SUCCESS", value: 40, color: "var(--chart-2)" },
+  { name: "FAILURE", value: 10, color: "var(--destructive)" },
 ];
 
 export function StatusDistribution() {
@@ -14,7 +14,7 @@ export function StatusDistribution() {
 
   return (
     <Card className="glass-panel flex flex-col rounded-3xl p-6">
-      <h3 className="mb-6 text-lg font-semibold text-white">
+      <h3 className="mb-6 text-lg font-semibold text-foreground">
         AI Execution Status
       </h3>
 
@@ -46,14 +46,14 @@ export function StatusDistribution() {
                         <tspan
                           x={viewBox.cx}
                           y={viewBox.cy}
-                          className="fill-white text-2xl font-bold tabular-nums"
+                          className="fill-foreground text-2xl font-bold tabular-nums"
                         >
                           {(totalCount / 1000).toFixed(1)}k
                         </tspan>
                         <tspan
                           x={viewBox.cx}
                           y={(viewBox.cy || 0) + 20}
-                          className="fill-slate-400 text-[10px] uppercase"
+                          className="fill-muted-foreground text-[10px] uppercase"
                         >
                           Total
                         </tspan>
@@ -75,7 +75,7 @@ export function StatusDistribution() {
               className="size-2.5 rounded-full"
               style={{ backgroundColor: item.color }}
             />
-            <span className="text-xs text-slate-300">{item.name}</span>
+            <span className="text-xs text-muted-foreground">{item.name}</span>
           </div>
         ))}
       </div>

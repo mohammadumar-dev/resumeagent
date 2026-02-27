@@ -112,16 +112,16 @@ export function MetricsKPIGrid() {
           return (
             <Card
               key={index}
-              className="glass-panel flex min-h-[140px] flex-col justify-between rounded-3xl p-5 transition-colors hover:bg-white/[0.02]"
+              className="glass-panel flex min-h-[140px] flex-col justify-between rounded-3xl p-5 transition-colors hover:bg-muted/40"
             >
               <div className="flex items-start justify-between">
-                <span className="text-xs font-medium uppercase tracking-wider text-slate-400">
+                <span className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
                   {kpi.label}
                 </span>
-                <Icon className="size-5 text-slate-600" />
+                <Icon className="size-5 text-muted-foreground" />
               </div>
               <div>
-                <div className="text-3xl font-bold tabular-nums tracking-tight text-white">
+                <div className="text-3xl font-bold tabular-nums tracking-tight text-foreground">
                   {kpi.value}
                 </div>
               </div>

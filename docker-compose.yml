@@ -1,0 +1,14 @@
+services:
+  backend:
+    build:
+      context: ./apps/backend
+    ports:
+      - "8080:8080"
+    environment:
+      SPRING_PROFILES_ACTIVE: prod
+      INFISICAL_SERVICE_TOKEN: ${INFISICAL_SERVICE_TOKEN}
+      INFISICAL_PROJECT_ID: ${INFISICAL_PROJECT_ID}
+      INFISICAL_ENVIRONMENT: ${INFISICAL_ENVIRONMENT:-prod}
+      INFISICAL_SECRET_PATH: ${INFISICAL_SECRET_PATH:-/}
+      INFISICAL_RECURSIVE: ${INFISICAL_RECURSIVE:-false}
+      INFISICAL_BASE_URL: ${INFISICAL_BASE_URL:-https://app.infisical.com}
