@@ -2,6 +2,7 @@ package com.resumeagent.config;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.resumeagent.security.CookieUtil;
+import com.resumeagent.security.CsrfCookieFilter;
 import com.resumeagent.security.JwtAuthenticationFilter;
 import com.resumeagent.dto.response.CommonResponse;
 import lombok.RequiredArgsConstructor;
@@ -18,6 +19,9 @@ import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
+import org.springframework.security.web.csrf.CsrfFilter;
+import org.springframework.security.web.csrf.CookieCsrfTokenRepository;
+import org.springframework.security.web.csrf.CsrfTokenRequestAttributeHandler;
 import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
@@ -84,8 +88,9 @@ public class SecurityConfig {
                 // SameSite cookies provide defense, but CSRF tokens are additional layer
                 .csrf(csrf -> csrf
                         // Use cookie-based CSRF tokens (works with SPA)
-                        .csrfTokenRepository(
-                                org.springframework.security.web.csrf.CookieCsrfTokenRepository.withHttpOnlyFalse())
+                        .csrfTokenRepository(csrfTokenRepository())
+                        // Accept raw token from SPA header instead of XOR-masked token
+                        .csrfTokenRequestHandler(new CsrfTokenRequestAttributeHandler())
                         // Ignore CSRF for login (otherwise login form breaks)
                         // NOTE: Login is idempotent and doesn't change server state until success
                         .ignoringRequestMatchers(
@@ -140,6 +145,8 @@ public class SecurityConfig {
 
                 // Add JWT filter before Spring Security's authentication filter
                 .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class)
+                // Force CSRF token generation so SPA can read XSRF-TOKEN cookie
+                .addFilterAfter(new CsrfCookieFilter(), CsrfFilter.class)
 
                 // Security Headers (Production Best Practices)
                 .headers(headers -> headers
@@ -216,7 +223,8 @@ public class SecurityConfig {
                 "Content-Type",
                 "Accept",
                 "X-Requested-With",
-                "X-CSRF-TOKEN"));
+                "X-CSRF-TOKEN",
+                "X-XSRF-TOKEN"));
 
         // CRITICAL: Required for cookie-based authentication
         configuration.setAllowCredentials(true);
@@ -251,6 +259,18 @@ public class SecurityConfig {
     @Bean
     public PasswordEncoder passwordEncoder() {
         return new BCryptPasswordEncoder(12);
+    }
+
+    /**
+     * CSRF Token Repository
+     *
+     * Aligns header name with common SPA defaults ("X-CSRF-TOKEN")
+     * while still using the standard "XSRF-TOKEN" cookie name.
+     */
+    private CookieCsrfTokenRepository csrfTokenRepository() {
+        CookieCsrfTokenRepository repository = CookieCsrfTokenRepository.withHttpOnlyFalse();
+        repository.setHeaderName("X-CSRF-TOKEN");
+        return repository;
     }
 
     /**
