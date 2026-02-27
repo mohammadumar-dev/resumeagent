@@ -271,8 +271,7 @@ public class JwtTokenProvider {
      * @return PrivateKey instance
      */
     private PrivateKey loadPrivateKey(String keyPath) throws Exception {
-        Resource resource = resourceLoader.getResource(keyPath);
-        String key = new String(Files.readAllBytes(resource.getFile().toPath()));
+        String key = resolveKeyMaterial(keyPath);
 
         // Remove PEM headers and whitespace
         String privateKeyPEM = key
@@ -300,8 +299,7 @@ public class JwtTokenProvider {
      * @return PublicKey instance
      */
     private PublicKey loadPublicKey(String keyPath) throws Exception {
-        Resource resource = resourceLoader.getResource(keyPath);
-        String key = new String(Files.readAllBytes(resource.getFile().toPath()));
+        String key = resolveKeyMaterial(keyPath);
 
         // Remove PEM headers and whitespace
         String publicKeyPEM = key
@@ -316,5 +314,22 @@ public class JwtTokenProvider {
         X509EncodedKeySpec spec = new X509EncodedKeySpec(keyBytes);
         KeyFactory keyFactory = KeyFactory.getInstance("RSA");
         return keyFactory.generatePublic(spec);
+    }
+
+    private String resolveKeyMaterial(String valueOrPath) throws Exception {
+        if (valueOrPath == null || valueOrPath.isBlank()) {
+            throw new IllegalArgumentException("JWT key value/path is blank");
+        }
+        String trimmed = valueOrPath.trim();
+        if (trimmed.contains("-----BEGIN")) {
+            return normalizePem(trimmed);
+        }
+        Resource resource = resourceLoader.getResource(trimmed);
+        String key = new String(Files.readAllBytes(resource.getFile().toPath()));
+        return normalizePem(key);
+    }
+
+    private String normalizePem(String pem) {
+        return pem.replace("\\n", "\n");
     }
 }
