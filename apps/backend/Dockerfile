@@ -19,8 +19,4 @@ COPY --from=build /workspace/target/*-SNAPSHOT.jar /app/app.jar
 
 USER app
 EXPOSE 8080
-
-# Default to production profile; secrets are injected via Infisical REST at bootstrap
-ENV SPRING_PROFILES_ACTIVE=prod
-
 ENTRYPOINT ["java","-jar","/app/app.jar"]

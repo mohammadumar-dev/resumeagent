@@ -2,6 +2,12 @@ import { ApiError } from '@/types/auth';
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080';
 
+export type DownloadPayload = {
+    blob: Blob;
+    filename: string | null;
+    contentType: string | null;
+};
+
 function defaultMessageForStatus(status: number, statusText?: string): string {
     if (statusText && statusText.trim()) return statusText;
     if (status === 401) return "Unauthorized";
@@ -37,6 +43,30 @@ function shouldLogPayload(payload: unknown): boolean {
     if (typeof payload !== "object") return true;
     if (Array.isArray(payload)) return payload.length > 0;
     return Object.keys(payload as Record<string, unknown>).length > 0;
+}
+
+function parseContentDispositionFilename(header: string | null): string | null {
+    if (!header) return null;
+
+    const filenameStarMatch = header.match(/filename\*\s*=\s*([^;]+)/i);
+    if (filenameStarMatch) {
+        const value = filenameStarMatch[1].trim();
+        const parts = value.split("''", 2);
+        const encoded = parts.length === 2 ? parts[1] : value;
+        const cleaned = encoded.replace(/^["']|["']$/g, "");
+        try {
+            return decodeURIComponent(cleaned);
+        } catch {
+            return cleaned;
+        }
+    }
+
+    const filenameMatch = header.match(/filename\s*=\s*([^;]+)/i);
+    if (filenameMatch) {
+        return filenameMatch[1].trim().replace(/^["']|["']$/g, "");
+    }
+
+    return null;
 }
 
 export class ApiClient {
@@ -233,13 +263,25 @@ export class ApiClient {
         });
     }
 
-    async blob(endpoint: string, options?: (RequestInit & { silent?: boolean })): Promise<Blob> {
+    async download(endpoint: string, options?: (RequestInit & { silent?: boolean })): Promise<DownloadPayload> {
         const url = `${this.baseUrl}${endpoint}`;
         const { silent, ...requestOptions } = options ?? {};
+
+        const shouldAttach = this.shouldAttachCsrf(requestOptions.method);
+        const csrfToken = shouldAttach ? await this.ensureCsrfToken() : null;
+
+        const defaultHeaders: HeadersInit = {
+            'Accept': '*/*',
+            ...(csrfToken ? { 'X-CSRF-TOKEN': csrfToken } : {}),
+        };
 
         const response = await fetch(url, {
             ...requestOptions,
             method: requestOptions?.method ?? "GET",
+            headers: {
+                ...defaultHeaders,
+                ...requestOptions.headers,
+            },
             credentials: "include",
         });
 
@@ -270,7 +312,19 @@ export class ApiClient {
             };
         }
 
-        return response.blob();
+        const blob = await response.blob();
+        const filename = parseContentDispositionFilename(response.headers.get("content-disposition"));
+
+        return {
+            blob,
+            filename,
+            contentType: response.headers.get("content-type"),
+        };
+    }
+
+    async blob(endpoint: string, options?: (RequestInit & { silent?: boolean })): Promise<Blob> {
+        const payload = await this.download(endpoint, options);
+        return payload.blob;
     }
 
 }

@@ -35,6 +35,11 @@ export default function ViewResumePage() {
   const router = useRouter();
 
   const handleDelete = async () => {
+    if (!resumeId) {
+      toast.error("Resume ID is missing.");
+      return;
+    }
+
     try {
       setIsDeleting(true);
 
@@ -52,15 +57,32 @@ export default function ViewResumePage() {
     }
   };
 
-  const handleDownload = () => {
-    if (!resumeId) return;
+  const handleDownload = async () => {
+    if (!resumeId || isDownloading) return;
 
-    const endpoint =
-      selectedTemplate === "default"
-        ? `${process.env.NEXT_PUBLIC_API_URL}/api/resume/${resumeId}/green/download`
-        : `${process.env.NEXT_PUBLIC_API_URL}/api/resume/${resumeId}/blue/download`;
+    setIsDownloading(true);
+    try {
+      const payload =
+        selectedTemplate === "default"
+          ? await resumeApi.downloadGreen(resumeId)
+          : await resumeApi.downloadBlue(resumeId);
 
-    window.open(endpoint, "_blank");
+      const url = window.URL.createObjectURL(payload.blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download =
+        payload.filename ||
+        (selectedTemplate === "default" ? "resume-green.docx" : "resume-blue.docx");
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.URL.revokeObjectURL(url);
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : "Failed to download resume.";
+      toast.error(message);
+    } finally {
+      setIsDownloading(false);
+    }
   };
 
 

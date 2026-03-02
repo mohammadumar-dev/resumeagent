@@ -226,6 +226,11 @@ public class SecurityConfig {
                 "X-CSRF-TOKEN",
                 "X-XSRF-TOKEN"));
 
+        // Expose headers needed by the client (e.g., download filename)
+        configuration.setExposedHeaders(List.of(
+                "Content-Disposition"
+        ));
+
         // CRITICAL: Required for cookie-based authentication
         configuration.setAllowCredentials(true);
 
