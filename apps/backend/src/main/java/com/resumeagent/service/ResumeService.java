@@ -555,11 +555,26 @@ public class ResumeService {
     private String buildFilename(Resume resume) {
         StringBuilder filename = new StringBuilder("Resume");
 
-        if (resume.getJobTitleTargeted() != null && !resume.getJobTitleTargeted().isBlank()) {
-            filename.append("_").append(sanitizeFilename(resume.getJobTitleTargeted()));
+        String jobTitle = firstNonBlank(
+                resume.getJobTitleTargeted(),
+                resume.getJobDescriptionAnalyzerJson() != null && resume.getJobDescriptionAnalyzerJson().getJobIdentity() != null
+                        ? resume.getJobDescriptionAnalyzerJson().getJobIdentity().getJobTitle()
+                        : null
+        );
+        String company = firstNonBlank(
+                resume.getCompanyTargeted(),
+                resume.getJobDescriptionAnalyzerJson() != null && resume.getJobDescriptionAnalyzerJson().getJobIdentity() != null
+                        ? resume.getJobDescriptionAnalyzerJson().getJobIdentity().getCompanyName()
+                        : null
+        );
+
+        String safeJob = sanitizeFilename(jobTitle);
+        if (safeJob != null) {
+            filename.append("_").append(safeJob);
         }
-        if (resume.getCompanyTargeted() != null && !resume.getCompanyTargeted().isBlank()) {
-            filename.append("_").append(sanitizeFilename(resume.getCompanyTargeted()));
+        String safeCompany = sanitizeFilename(company);
+        if (safeCompany != null) {
+            filename.append("_").append(safeCompany);
         }
 
         filename.append(".docx");
@@ -570,7 +585,28 @@ public class ResumeService {
      * Sanitizes a string for use in a filename.
      */
     private String sanitizeFilename(String input) {
-        return input.replaceAll("[^a-zA-Z0-9.-]", "_").substring(0, Math.min(input.length(), 30));
+        if (input == null) {
+            return null;
+        }
+        String trimmed = input.trim();
+        if (trimmed.isEmpty()) {
+            return null;
+        }
+        String sanitized = trimmed.replaceAll("[^a-zA-Z0-9.-]", "_");
+        if (sanitized.isEmpty()) {
+            return null;
+        }
+        return sanitized.substring(0, Math.min(sanitized.length(), 30));
+    }
+
+    private String firstNonBlank(String primary, String fallback) {
+        if (primary != null && !primary.isBlank()) {
+            return primary;
+        }
+        if (fallback != null && !fallback.isBlank()) {
+            return fallback;
+        }
+        return null;
     }
 
 

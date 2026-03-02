@@ -1,4 +1,5 @@
 import { apiClient } from '@/lib/api/client';
+import type { DownloadPayload } from '@/lib/api/client';
 import type { MasterResumeCommonResponse, MasterResumeViewResponse, CreateAndUpdateMasterResumeRequest } from '@/types/master-resume';
 import type { ResumeGenerateResponse, ResumeListAllResponse } from '@/types/resume';
 
@@ -40,12 +41,12 @@ export const resumeApi = {
     return apiClient.get<MasterResumeViewResponse>(`/api/resume/view/${resumeId}`);
   },
 
-  downloadGreen: async (resumeId: string): Promise<Blob> => {
-    return apiClient.blob(`/api/resume/${resumeId}/green/download`);
+  downloadGreen: async (resumeId: string): Promise<DownloadPayload> => {
+    return apiClient.download(`/api/resume/${resumeId}/green/download`);
   },
 
-  downloadBlue: async (resumeId: string): Promise<Blob> => {
-    return apiClient.blob(`/api/resume/${resumeId}/blue/download`);
+  downloadBlue: async (resumeId: string): Promise<DownloadPayload> => {
+    return apiClient.download(`/api/resume/${resumeId}/blue/download`);
   },
 
   edit: async (
